@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "hooks:install": "bun run scripts/hooks.ts install",
+    "hooks:uninstall": "bun run scripts/hooks.ts uninstall",
+    "hooks:status": "bun run scripts/hooks.ts status"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
