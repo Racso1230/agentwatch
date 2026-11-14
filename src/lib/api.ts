@@ -38,6 +38,10 @@ export const launchSession = (cwd: string, prompt: string) =>
 export const getTranscript = (sessionId: string) =>
   invoke<TranscriptItem[]>("get_transcript", { sessionId });
 
+/** Real session id for a temporary "pending-..." id (or the id itself). */
+export const resolveSession = (sessionId: string) =>
+  invoke<string>("resolve_session", { sessionId });
+
 export const sendMessage = (sessionId: string, text: string) =>
   invoke<void>("send_message", { sessionId, text });
 

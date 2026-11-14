@@ -297,6 +297,12 @@ fn get_transcript(
     owned.get_transcript(&session_id)
 }
 
+/// The real session id for a temporary `pending-...` id (or the id itself).
+#[tauri::command]
+fn resolve_session(owned: tauri::State<'_, Owned>, session_id: String) -> String {
+    owned.resolve_id(&session_id)
+}
+
 /// Send a follow-up message to an owned agent. Empty text is rejected.
 #[tauri::command]
 fn send_message(
@@ -440,6 +446,7 @@ pub fn run() {
             set_mode,
             launch_session,
             get_transcript,
+            resolve_session,
             send_message,
             interrupt_session,
             end_session,

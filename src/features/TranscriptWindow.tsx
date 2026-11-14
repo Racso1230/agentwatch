@@ -7,18 +7,13 @@ import {
   useState,
 } from "react";
 import type { KeyboardEvent } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type {
-  Session,
-  SessionRekeyed,
-  TranscriptEvent,
-  TranscriptItem,
-} from "../types";
+import type { SessionRekeyed, TranscriptEvent, TranscriptItem } from "../types";
 import {
   endSession,
   getTranscript,
   interruptSession,
+  resolveSession,
   sendMessage,
 } from "../lib/api";
 import { replyKeyAction } from "../lib/respond";
@@ -41,8 +36,9 @@ import "../App.css";
 /**
  * Loads one session's transcript, then follows `transcript` events. The
  * session starts under a temporary "pending-..." id; `session-rekeyed` tells
- * us the real one. If the window opened after that event already fired, the
- * first event with an unknown id is matched against the temp transcript.
+ * us the real one. If the window opened after that event already fired, it
+ * asks Rust for the real id (`resolve_session`) on load and on any event for
+ * an unknown id.
  */
 function useTranscript(initialId: string): {
   id: string;
@@ -81,6 +77,20 @@ function useTranscript(initialId: string): {
         })
         .catch(() => {});
 
+    // Switch from a temporary id to the real one if Rust has re-keyed it.
+    const adopt = async (temp: string) => {
+      if (!temp.startsWith("pending-")) return;
+      try {
+        const real = await resolveSession(temp);
+        if (cancelled || idRef.current !== temp || real === temp) return;
+        idRef.current = real;
+        setId(real);
+        await reload(real);
+      } catch {
+        // Best effort: `session-rekeyed` or the next event will retry.
+      }
+    };
+
     keep(
       listen<TranscriptEvent>("transcript", (e) => {
         const ev = e.payload;
@@ -90,21 +100,8 @@ function useTranscript(initialId: string): {
           if (next === null) void reload(cur);
           else if (next !== itemsRef.current) commit(next);
         } else if (cur.startsWith("pending-")) {
-          // Maybe our session under its real id: compare with the temp copy.
-          getTranscript(cur)
-            .then((full) => {
-              if (cancelled || idRef.current !== cur) return;
-              const slice = full.slice(
-                ev.from_index,
-                ev.from_index + ev.items.length,
-              );
-              if (JSON.stringify(slice) === JSON.stringify(ev.items)) {
-                idRef.current = ev.session_id;
-                setId(ev.session_id);
-                commit(full);
-              }
-            })
-            .catch(() => {});
+          // Maybe our session under its real id: ask Rust.
+          void adopt(cur);
         }
       }),
     );
@@ -116,32 +113,9 @@ function useTranscript(initialId: string): {
         }
       }),
     );
-    void reload(initialId).then(async () => {
-      // Opened after the rekey already happened (the launcher opens us right
-      // away, claude may answer first): find the real id by comparing
-      // transcripts of the running owned sessions with ours.
-      if (!initialId.startsWith("pending-") || cancelled) return;
-      try {
-        const all = await invoke<Session[]>("get_sessions");
-        for (const s of all.filter((x) => x.owned)) {
-          if (idRef.current !== initialId || cancelled) return;
-          const theirs = await getTranscript(s.session_id);
-          const ours = itemsRef.current;
-          const n = Math.min(theirs.length, ours.length);
-          if (
-            n > 0 &&
-            JSON.stringify(theirs.slice(0, n)) ===
-              JSON.stringify(ours.slice(0, n))
-          ) {
-            idRef.current = s.session_id;
-            setId(s.session_id);
-            return;
-          }
-        }
-      } catch {
-        // Best effort: the next transcript event can still adopt the id.
-      }
-    });
+    // Opened after the rekey already happened (the launcher opens us right
+    // away and claude may answer first): Rust keeps the temp -> real alias.
+    void reload(initialId).then(() => adopt(initialId));
 
     return () => {
       cancelled = true;

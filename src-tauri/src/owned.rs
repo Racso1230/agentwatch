@@ -712,6 +712,14 @@ impl Owned {
         }));
     }
 
+    /// The current id for `id`: the real session id once a temporary
+    /// `pending-...` id has been re-keyed, otherwise `id` unchanged. Lets a
+    /// window that opened late find its session without racing the
+    /// `session-rekeyed` event.
+    pub fn resolve_id(&self, id: &str) -> String {
+        self.lock().resolve(id)
+    }
+
     /// Send another user message to a running session.
     pub fn send_message(&self, id: &str, text: &str) -> Result<(), String> {
         if text.trim().is_empty() {
