@@ -24,6 +24,7 @@ use tauri_plugin_window_state::StateFlags;
 
 use config::Config;
 use notify::Notifier;
+use owned::{Owned, OwnedEvent, TranscriptItem};
 use pending::{Pending, PermissionAnswer};
 use policy::Mode;
 use server::{AppState, SharedStore};
@@ -243,6 +244,97 @@ fn set_mode(state: tauri::State<'_, AppState>, session_id: String, mode: Mode) -
     state.set_mode(&session_id, mode)
 }
 
+/// Emitted when the tray's Quit is chosen while owned agents are running.
+/// The payload is how many; the UI asks the user, then calls `quit_app`.
+pub const CONFIRM_QUIT_EVENT: &str = "confirm-quit";
+
+/// Quit now, unless owned agents are running: then show the window and ask
+/// the UI to confirm first (tray "Quit" uses this).
+pub fn request_quit(app: &tauri::AppHandle) {
+    let running = app
+        .try_state::<Owned>()
+        .map(|o| o.running_count())
+        .unwrap_or(0);
+    if running == 0 {
+        app.exit(0);
+        return;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    let _ = app.emit(CONFIRM_QUIT_EVENT, running);
+}
+
+/// Start a Claude Code agent in `cwd`. Returns the temporary session id; the
+/// real one follows in a `session-rekeyed` event. Remembers the folder.
+#[tauri::command]
+async fn launch_session(
+    app: tauri::AppHandle,
+    owned: tauri::State<'_, Owned>,
+    cwd: String,
+    prompt: String,
+) -> Result<String, String> {
+    let id = owned.launch(&cwd, &prompt).await?;
+    let mut next = app
+        .state::<SettingsState>()
+        .current
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    next.add_recent_folder(&cwd);
+    if let Err(e) = commit_settings(&app, next) {
+        eprintln!("agentwatch: saving recent folders failed: {e}");
+    }
+    Ok(id)
+}
+
+#[tauri::command]
+fn get_transcript(
+    owned: tauri::State<'_, Owned>,
+    session_id: String,
+) -> Result<Vec<TranscriptItem>, String> {
+    owned.get_transcript(&session_id)
+}
+
+/// Send a follow-up message to an owned agent. Empty text is rejected.
+#[tauri::command]
+fn send_message(
+    owned: tauri::State<'_, Owned>,
+    session_id: String,
+    text: String,
+) -> Result<(), String> {
+    owned.send_message(&session_id, &text)
+}
+
+/// Always an error today ("interrupt not supported"); see `owned.rs`.
+#[tauri::command]
+fn interrupt_session(owned: tauri::State<'_, Owned>, session_id: String) -> Result<(), String> {
+    owned.interrupt(&session_id)
+}
+
+/// Close the agent's input; it is killed after 5 s if it does not exit.
+/// `async` so a tokio runtime is available for the grace timer.
+#[tauri::command]
+async fn end_session(owned: tauri::State<'_, Owned>, session_id: String) -> Result<(), String> {
+    owned.end(&session_id)
+}
+
+/// How many owned agents are still running (for the quit confirmation).
+#[tauri::command]
+fn owned_running_count(owned: tauri::State<'_, Owned>) -> usize {
+    owned.running_count()
+}
+
+/// Kill all owned agents and exit. The UI calls this after the user agreed.
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    if let Some(owned) = app.try_state::<Owned>() {
+        owned.kill_all();
+    }
+    app.exit(0);
+}
+
 pub fn run() {
     // Plugins are added to the builder before `.build()`; each one registers
     // itself with the app (and may add commands or managed state).
@@ -267,7 +359,14 @@ pub fn run() {
             answer_permission,
             send_reply,
             dismiss_reply,
-            set_mode
+            set_mode,
+            launch_session,
+            get_transcript,
+            send_message,
+            interrupt_session,
+            end_session,
+            owned_running_count,
+            quit_app
         ])
         .setup(|app| {
             // `?` converts the error and returns early from setup; Tauri
@@ -291,6 +390,24 @@ pub fn run() {
                 on_change: Arc::new(move |snapshot| emit_sessions(&handle, snapshot)),
                 now: server::now_millis,
             };
+
+            // Owned sessions: processes agentwatch launches itself. Their
+            // events become Tauri events for the transcript window.
+            let owned_handle = app.handle().clone();
+            app.manage(Owned::new(
+                state.config.clone(),
+                state.store.clone(),
+                state.on_change.clone(),
+                Arc::new(move |event| match event {
+                    OwnedEvent::Transcript(e) => {
+                        let _ = owned_handle.emit("transcript", e);
+                    }
+                    OwnedEvent::Rekeyed(e) => {
+                        let _ = owned_handle.emit("session-rekeyed", e);
+                    }
+                }),
+                server::now_millis,
+            ));
 
             // Bind now so a failure shows up at startup, then publish the
             // port for the shim and serve on Tauri's async runtime.
@@ -344,6 +461,10 @@ pub fn run() {
     app.run(|handle, event| {
         // Clean exit: remove endpoint.json so the shim finds nothing.
         if let RunEvent::Exit = event {
+            // Never leave launched agents running after the app is gone.
+            if let Some(owned) = handle.try_state::<Owned>() {
+                owned.kill_all();
+            }
             if let Some(dir) = handle.try_state::<DataDir>() {
                 endpoint::remove_endpoint(&dir.0);
             }

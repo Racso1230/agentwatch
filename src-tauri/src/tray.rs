@@ -71,9 +71,9 @@ pub fn build(app: &AppHandle, click_through: bool) -> tauri::Result<()> {
                 show_window(app);
                 let _ = app.emit(OPEN_SETTINGS_EVENT, ());
             }
-            // `exit` runs the normal shutdown, so `RunEvent::Exit` fires and
-            // endpoint.json is removed.
-            "quit" => app.exit(0),
+            // Asks first when owned agents are running; otherwise exits (so
+            // `RunEvent::Exit` fires and endpoint.json is removed).
+            "quit" => crate::request_quit(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
