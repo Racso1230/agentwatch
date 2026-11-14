@@ -9,6 +9,8 @@ import {
   stateColor,
   stateLabel,
 } from "./lib/sessions";
+import { ModeMenu } from "./components/ModeMenu";
+import { modeLabel } from "./lib/respond";
 import { ReplyBox } from "./components/ReplyBox";
 import { PermissionCard } from "./components/PermissionCard";
 import "./App.css";
@@ -54,6 +56,7 @@ function useSessions(): Session[] {
 
 function SessionRow({ session, now }: { session: Session; now: number }) {
   const color = stateColor(session.state);
+  const badge = modeLabel(session.mode, now);
   return (
     <li className={`row row-${session.state}`}>
       <div className="row-main">
@@ -64,9 +67,11 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
         <span className="label" style={{ color }}>
           {stateLabel(session.state)}
         </span>
+        {badge && <span className="badge">{badge}</span>}
         <span className="time">
           {formatDuration(now - session.state_since)}
         </span>
+        <ModeMenu sessionId={session.session_id} mode={session.mode} />
       </div>
       {session.reply_open && <ReplyBox sessionId={session.session_id} />}
       {session.pending_permission ? (
