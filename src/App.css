@@ -23,7 +23,8 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgba(22, 24, 29, 0.88);
+  --panel-alpha: 0.95;
+  background: rgba(22, 24, 29, var(--panel-alpha));
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   overflow: hidden;
@@ -414,4 +415,76 @@ textarea:focus-visible,
 .muted-badge {
   font-size: 11px;
   line-height: 1;
+}
+
+.gear {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8a8f98;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gear:hover,
+.gear[aria-pressed="true"] {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.settings {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+}
+
+.settings-title {
+  font-weight: 600;
+}
+
+.settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 12px 10px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.setting-slider {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.setting-slider input {
+  width: 100%;
+}
+
+.setting-value {
+  color: #8a8f98;
+  margin-left: 6px;
+}
+
+.setting-warn {
+  margin: 0 0 4px 24px;
+  color: #ffb020;
+  font-size: 11px;
 }

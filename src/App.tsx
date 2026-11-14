@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -17,6 +17,9 @@ import { ModeMenu } from "./components/ModeMenu";
 import { modeLabel } from "./lib/respond";
 import { ReplyBox } from "./components/ReplyBox";
 import { focusSession } from "./lib/api";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { useSettings } from "./lib/useSettings";
+import { panelAlpha } from "./lib/settings";
 import { PermissionCard } from "./components/PermissionCard";
 import "./App.css";
 
@@ -161,9 +164,22 @@ export default function App() {
   const sessions = useSessions();
   const now = useNow();
   const sorted = useMemo(() => sortSessions(sessions), [sessions]);
+  const { settings, error, save, openRequest } = useSettings();
+  const [showSettings, setShowSettings] = useState(false);
+  const [previewOpacity, setPreviewOpacity] = useState<number | null>(null);
+
+  // Tray "Settings..." asks us to open the panel. Adjusting state during
+  // render (instead of in an effect) is React's recommended pattern here.
+  const [seenOpen, setSeenOpen] = useState(0);
+  if (openRequest !== seenOpen) {
+    setSeenOpen(openRequest);
+    setShowSettings(true);
+  }
+
+  const alpha = panelAlpha(previewOpacity ?? settings?.opacity ?? 0.95);
 
   return (
-    <div className="panel">
+    <div className="panel" style={{ "--panel-alpha": alpha } as CSSProperties}>
       <header className="header" data-tauri-drag-region>
         <span className="title" data-tauri-drag-region>
           agentwatch
@@ -173,6 +189,16 @@ export default function App() {
         </span>
         <button
           type="button"
+          className="gear"
+          aria-label="Settings"
+          aria-pressed={showSettings}
+          title="Settings"
+          onClick={() => setShowSettings((v) => !v)}
+        >
+          ⚙
+        </button>
+        <button
+          type="button"
           className="close"
           aria-label="Close agentwatch"
           onClick={() => void getCurrentWindow().close()}
@@ -180,7 +206,15 @@ export default function App() {
           ×
         </button>
       </header>
-      {sorted.length === 0 ? (
+      {showSettings && settings ? (
+        <SettingsPanel
+          settings={settings}
+          error={error}
+          onSave={save}
+          onPreviewOpacity={setPreviewOpacity}
+          onBack={() => setShowSettings(false)}
+        />
+      ) : sorted.length === 0 ? (
         <div className="empty">
           <p>No Claude Code sessions yet</p>
           <p className="hint">
