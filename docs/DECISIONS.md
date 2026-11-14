@@ -8,7 +8,7 @@ All decided by the user on 2026-11-14 (end of Phase 0).
 | 2 | Platforms | Windows, Linux, macOS |
 | 3 | Channel | localhost HTTP on 127.0.0.1 + per-install token |
 | 4 | Stakes | Personal tool; no signing/auto-update; must fail open |
-| 5 | Hook transport | Command shim that POSTs to the widget (not native `http` hooks) |
+| 5 | Hook transport | Command shim (Bun/TypeScript) that POSTs to the widget (not native `http` hooks) |
 | 6 | Sources | Claude Code only for now; source-agnostic core event type |
 | 7 | Session identity | `session_id` only |
 
@@ -54,12 +54,15 @@ All decided by the user on 2026-11-14 (end of Phase 0).
   - print the widget's response only if it parses as a single JSON object; never print plain text (it is injected into Claude's context for `UserPromptSubmit`/`SessionStart`);
   - never exit 2.
 - **Consequences:** Widget down = silent no-op. Costs one process spawn per event. A binary must be built and installed; the installer writes the hook config idempotently and merges with existing hooks.
-- **Open question (Phase 1): shim language.**
+- **Shim language (decided 2026-11-14): Bun / TypeScript.** Bun is also the frontend package manager and script runner.
 
-  | Option | Pros | Cons |
+  | Option considered | Pros | Cons |
   |---|---|---|
-  | Rust binary in the Tauri workspace (recommended) | ~ms startup, single exe, no Node dependency, shares event types with the widget | Needs per-OS build artefacts |
-  | Node script | Fast to write; ~50 ms startup measured | Needs Node on PATH for every hook call; slower per event |
+  | **Bun (chosen)** | Same language as the frontend; ~80 ms per event measured (vs ~110 ms Node, same machine via Git Bash) | Needs Bun on PATH, or `bun build --compile` (single exe, ~60–100 MB) |
+  | Rust binary | ~ms startup, ~1 MB exe | Second language for the shim |
+  | Node script | Fast to write | Slowest; needs Node on PATH |
+
+  Whether the hook config calls `bun shim.ts` or a compiled exe is decided in Phase 1.
 
 ## ADR-6: Sources — Claude Code only, source-agnostic core
 
