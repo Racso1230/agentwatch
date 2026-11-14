@@ -137,12 +137,21 @@ This document describes **what to build and in what order**, not how to build it
 - A transcript view for widget-owned sessions.
 - Keep hook-observed sessions and widget-owned sessions side by side under the same UI.
 
-**Done when**
-- The user can start, drive and finish an agent session without ever opening VS Code or a terminal.
+**Status:** Phase 4 built and verified live (2026-11-14).
+- **Engine:** headless `claude -p` with stream-json in and out, in default (ask) permission mode.
+- **Launcher window:** folder picker and recent folders.
+- **Transcript window:** text plus expandable tool lines, running cost, Stop (interrupt) and End.
+- **Permission prompts** appear as a banner and on the widget card.
+- **Owned rows** carry an "agentwatch" badge.
+- **Quitting** asks first while agents are running.
+- **Hook-observed sessions** are unchanged.
 
-**Open questions for the user**
-- Headless/SDK or PTY? (Trade-off: structured data vs exactly matching the terminal experience.)
-- Does the transcript view need to be rich (diffs, tool output) or is plain text fine?
+**Done when**
+- [x] The user can start, drive and finish an agent session without ever opening VS Code or a terminal.
+
+**Open questions for the user** (answered)
+- Headless CLI (stream-json), not a PTY or the SDK.
+- The transcript shows text plus one-line tool summaries that expand. No diff viewer.
 
 ---
 
