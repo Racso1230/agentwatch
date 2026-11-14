@@ -488,3 +488,52 @@ textarea:focus-visible,
   color: #ffb020;
   font-size: 11px;
 }
+
+/* Animations: all switched off under prefers-reduced-motion below. */
+.row {
+  transition:
+    opacity 0.4s,
+    background-color 0.3s;
+  animation: row-in 0.2s ease-out;
+}
+
+.dot {
+  transition: background-color 0.3s;
+}
+
+.label {
+  transition: color 0.3s;
+}
+
+.row-working .dot {
+  animation: dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .dot,
+  .label,
+  .row-working .dot {
+    animation: none;
+    transition: none;
+  }
+}
