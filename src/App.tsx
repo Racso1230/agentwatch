@@ -1,10 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Session } from "./types";
+import {
+  formatDuration,
+  sortSessions,
+  stateColor,
+  stateLabel,
+} from "./lib/sessions";
+import "./App.css";
 
-// Placeholder UI: Phase 1 Agent C replaces this with the real session list.
-export default function App() {
+/** Re-render every second so "time in state" ticks. */
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+function useSessions(): Session[] {
   const [sessions, setSessions] = useState<Session[]>([]);
 
   useEffect(() => {
@@ -30,10 +47,69 @@ export default function App() {
     };
   }, []);
 
+  return sessions;
+}
+
+function SessionRow({ session, now }: { session: Session; now: number }) {
+  const color = stateColor(session.state);
   return (
-    <main>
-      <h1>agentwatch</h1>
-      <pre>{JSON.stringify(sessions, null, 2)}</pre>
-    </main>
+    <li className={`row row-${session.state}`}>
+      <div className="row-main">
+        <span className="dot" style={{ background: color }} />
+        <span className="project" title={session.cwd}>
+          {session.project}
+        </span>
+        <span className="label" style={{ color }}>
+          {stateLabel(session.state)}
+        </span>
+        <span className="time">
+          {formatDuration(now - session.state_since)}
+        </span>
+      </div>
+      {session.state === "needs_you" && session.pending_tool && (
+        <div className="pending">{session.pending_tool}</div>
+      )}
+    </li>
+  );
+}
+
+export default function App() {
+  const sessions = useSessions();
+  const now = useNow();
+  const sorted = useMemo(() => sortSessions(sessions), [sessions]);
+
+  return (
+    <div className="panel">
+      <header className="header" data-tauri-drag-region>
+        <span className="title" data-tauri-drag-region>
+          agentwatch
+        </span>
+        <span className="count" data-tauri-drag-region>
+          {sessions.length}
+        </span>
+        <button
+          type="button"
+          className="close"
+          aria-label="Close agentwatch"
+          onClick={() => void getCurrentWindow().close()}
+        >
+          ×
+        </button>
+      </header>
+      {sorted.length === 0 ? (
+        <div className="empty">
+          <p>No Claude Code sessions yet</p>
+          <p className="hint">
+            run <code>bun run hooks:install</code>, then start Claude Code
+          </p>
+        </div>
+      ) : (
+        <ul className="list">
+          {sorted.map((s) => (
+            <SessionRow key={s.session_id} session={s} now={now} />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
