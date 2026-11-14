@@ -26,9 +26,11 @@ This document describes **what to build and in what order**, not how to build it
 - Choose the UI framework and the local communication channel.
 - Sketch the session state model (what states an agent can be in, and which events move it between them).
 
+**Status:** Phase 0 complete except the VS Code capture. See [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/state-model.md](docs/state-model.md).
+
 **Done when**
-- There's a captured log of real hook payloads for a typical session.
-- The UI framework, channel and state model are written down.
+- [x] There's a captured log of real hook payloads for a typical session (terminal done; VS Code pending).
+- [x] The UI framework, channel and state model are written down.
 
 **Open questions for the user**
 - Tauri (web UI, easier to make pretty) or egui (all Rust, simpler)?
