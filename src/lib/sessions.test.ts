@@ -19,6 +19,9 @@ function make(id: string, state: SessionState): Session {
     pending_tool: null,
     transcript_path: null,
     ended_at: null,
+    mode: { kind: "ask_me" },
+    pending_permission: null,
+    reply_open: false,
   };
 }
 
