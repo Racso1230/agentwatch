@@ -14,5 +14,5 @@
     "noEmit": true,
     "types": ["bun", "vite/client"]
   },
-  "include": ["src", "shim", "scripts", "vite.config.ts"]
+  "include": ["src", "shim", "scripts", "src-tauri/tests", "vite.config.ts"]
 }
