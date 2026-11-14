@@ -9,6 +9,7 @@ import {
   stateColor,
   stateLabel,
 } from "./lib/sessions";
+import { ReplyBox } from "./components/ReplyBox";
 import { PermissionCard } from "./components/PermissionCard";
 import "./App.css";
 
@@ -67,6 +68,7 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
           {formatDuration(now - session.state_since)}
         </span>
       </div>
+      {session.reply_open && <ReplyBox sessionId={session.session_id} />}
       {session.pending_permission ? (
         <PermissionCard
           key={session.pending_permission.expires_at}
