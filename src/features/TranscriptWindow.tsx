@@ -7,8 +7,14 @@ import {
   useState,
 } from "react";
 import type { KeyboardEvent } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { SessionRekeyed, TranscriptEvent, TranscriptItem } from "../types";
+import type {
+  Session,
+  SessionRekeyed,
+  TranscriptEvent,
+  TranscriptItem,
+} from "../types";
 import {
   endSession,
   getTranscript,
@@ -110,7 +116,32 @@ function useTranscript(initialId: string): {
         }
       }),
     );
-    void reload(initialId);
+    void reload(initialId).then(async () => {
+      // Opened after the rekey already happened (the launcher opens us right
+      // away, claude may answer first): find the real id by comparing
+      // transcripts of the running owned sessions with ours.
+      if (!initialId.startsWith("pending-") || cancelled) return;
+      try {
+        const all = await invoke<Session[]>("get_sessions");
+        for (const s of all.filter((x) => x.owned)) {
+          if (idRef.current !== initialId || cancelled) return;
+          const theirs = await getTranscript(s.session_id);
+          const ours = itemsRef.current;
+          const n = Math.min(theirs.length, ours.length);
+          if (
+            n > 0 &&
+            JSON.stringify(theirs.slice(0, n)) ===
+              JSON.stringify(ours.slice(0, n))
+          ) {
+            idRef.current = s.session_id;
+            setId(s.session_id);
+            return;
+          }
+        }
+      } catch {
+        // Best effort: the next transcript event can still adopt the id.
+      }
+    });
 
     return () => {
       cancelled = true;
