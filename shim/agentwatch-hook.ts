@@ -97,6 +97,29 @@ function eventName(text: string): string {
   return "";
 }
 
+/**
+ * Adds a top-level `agentwatch` key with facts only the hook's environment
+ * knows (the payload itself has none of them). Bodies that are not a JSON
+ * object are forwarded unchanged. Never throws.
+ */
+function withMeta(text: string): string {
+  try {
+    const v: unknown = JSON.parse(text);
+    if (typeof v !== "object" || v === null || Array.isArray(v)) return text;
+    const meta = {
+      entrypoint: process.env.CLAUDE_CODE_ENTRYPOINT || null,
+      claude_pid: Number(process.env.CLAUDE_PID) || null,
+      vscode_pid: Number(process.env.VSCODE_PID) || null,
+    };
+    return JSON.stringify({
+      ...(v as Record<string, unknown>),
+      agentwatch: meta,
+    });
+  } catch {
+    return text;
+  }
+}
+
 async function post(
   endpoint: { port: number; token: string },
   path: string,
@@ -159,7 +182,8 @@ async function main(): Promise<number> {
   const body = await readStdin(endpoint !== null);
   if (!endpoint) return 0;
   if (!body || body.byteLength === 0) return 0;
-  const text = new TextDecoder().decode(body);
+  const text = withMeta(new TextDecoder().decode(body));
+  // eventName() reads only hook_event_name, which withMeta leaves untouched.
 
   switch (eventName(text)) {
     case "PermissionRequest": {

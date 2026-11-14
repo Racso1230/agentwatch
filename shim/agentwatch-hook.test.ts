@@ -18,6 +18,23 @@ function tempDir(endpoint?: unknown): string {
   return dir;
 }
 
+// The shim reads these three variables; drop them so a test run inside Claude
+// Code itself does not leak real values into the forwarded body.
+function cleanEnv(): Record<string, string | undefined> {
+  const env = { ...process.env };
+  delete env.CLAUDE_CODE_ENTRYPOINT;
+  delete env.CLAUDE_PID;
+  delete env.VSCODE_PID;
+  return env;
+}
+
+/** Body as the server saw it, with the `agentwatch` meta key removed. */
+function stripMeta(body: string): string {
+  const v = JSON.parse(body) as Record<string, unknown>;
+  delete v.agentwatch;
+  return JSON.stringify(v);
+}
+
 async function runShim(
   dir: string,
   stdin: string,
@@ -25,7 +42,7 @@ async function runShim(
 ) {
   const start = performance.now();
   const proc = Bun.spawn([process.execPath, SHIM], {
-    env: { ...process.env, AGENTWATCH_DIR: dir, ...extraEnv },
+    env: { ...cleanEnv(), AGENTWATCH_DIR: dir, ...extraEnv },
     stdin: new TextEncoder().encode(stdin),
     stdout: "pipe",
     stderr: "pipe",
@@ -153,8 +170,10 @@ describe("agentwatch-hook shim", () => {
         note: "ünï\n",
       });
       expectSilentSuccess(await runShim(dir, body));
+      expect(got).not.toBeNull();
+      expect(stripMeta((got as unknown as Got).body)).toBe(body);
       expect(got).toEqual({
-        body,
+        body: (got as unknown as Got).body,
         auth: "Bearer secret-token",
         method: "POST",
         path: "/event",
@@ -295,8 +314,9 @@ describe("PermissionRequest route", () => {
     try {
       const dir = tempDir({ port: s.port, token: "tok-p", pid: 1 });
       expectSilentSuccess(await runShim(dir, PERM));
+      expect(stripMeta((got as unknown as Seen).body)).toBe(PERM);
       expect(got).toEqual({
-        body: PERM,
+        body: (got as unknown as Seen).body,
         auth: "Bearer tok-p",
         path: "/permission",
       });
@@ -377,7 +397,12 @@ describe("Stop route", () => {
     try {
       const dir = tempDir({ port: s.port, token: "tok-s", pid: 1 });
       expectSilentSuccess(await runShim(dir, STOP));
-      expect(got).toEqual({ body: STOP, auth: "Bearer tok-s", path: "/stop" });
+      expect(stripMeta((got as unknown as Seen).body)).toBe(STOP);
+      expect(got).toEqual({
+        body: (got as unknown as Seen).body,
+        auth: "Bearer tok-s",
+        path: "/stop",
+      });
     } finally {
       await s.stop(true);
     }
@@ -409,5 +434,52 @@ describe("generic routing", () => {
     } finally {
       await s.stop(true);
     }
+  });
+});
+
+describe("agentwatch meta", () => {
+  async function bodyFor(stdin: string, env: Record<string, string>) {
+    let body = "";
+    const s = serve(async (req) => {
+      body = await req.text();
+      return new Response("{}");
+    });
+    try {
+      const dir = tempDir({ port: s.port, token: "t", pid: 1 });
+      expectSilentSuccess(await runShim(dir, stdin, env));
+    } finally {
+      await s.stop(true);
+    }
+    return body;
+  }
+
+  test("env vars are forwarded under the agentwatch key", async () => {
+    const body = await bodyFor(EVENT, {
+      CLAUDE_CODE_ENTRYPOINT: "claude-vscode",
+      CLAUDE_PID: "1234",
+      VSCODE_PID: "5678",
+    });
+    const v = JSON.parse(body);
+    expect(v.hook_event_name).toBe("PreToolUse");
+    expect(v.session_id).toBe("abc");
+    expect(v.agentwatch).toEqual({
+      entrypoint: "claude-vscode",
+      claude_pid: 1234,
+      vscode_pid: 5678,
+    });
+  });
+
+  test("unset or invalid env vars become null", async () => {
+    const v = JSON.parse(await bodyFor(EVENT, { CLAUDE_PID: "abc" }));
+    expect(v.agentwatch).toEqual({
+      entrypoint: null,
+      claude_pid: null,
+      vscode_pid: null,
+    });
+  });
+
+  test("a body that is not a JSON object is forwarded unchanged", async () => {
+    expect(await bodyFor("[1,2]", {})).toBe("[1,2]");
+    expect(await bodyFor("not json", {})).toBe("not json");
   });
 });
