@@ -358,3 +358,60 @@ textarea:focus-visible,
 .menu-sub {
   padding-left: 22px;
 }
+
+/* Row main area: dot + names, clickable for VS Code sessions. */
+.row-focus {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -3px -4px;
+  padding: 3px 4px;
+  border-radius: 6px;
+}
+
+.row-focus.clickable {
+  cursor: pointer;
+}
+
+.row-focus.clickable:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.project {
+  display: block;
+}
+
+.where {
+  margin-left: 6px;
+  color: #6f747d;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8a8f98;
+  font-size: 11px;
+}
+
+.focus-error {
+  margin: 2px 0 0 17px;
+  color: #ff7b7b;
+  font-size: 11px;
+}
+
+.muted-badge {
+  font-size: 11px;
+  line-height: 1;
+}

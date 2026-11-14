@@ -4,6 +4,10 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Session } from "./types";
 import {
+  canFocus,
+  entrypointLabel,
+  focusHint,
+  subtitle,
   formatDuration,
   sortSessions,
   stateColor,
@@ -12,6 +16,7 @@ import {
 import { ModeMenu } from "./components/ModeMenu";
 import { modeLabel } from "./lib/respond";
 import { ReplyBox } from "./components/ReplyBox";
+import { focusSession } from "./lib/api";
 import { PermissionCard } from "./components/PermissionCard";
 import "./App.css";
 
@@ -57,22 +62,81 @@ function useSessions(): Session[] {
 function SessionRow({ session, now }: { session: Session; now: number }) {
   const color = stateColor(session.state);
   const badge = modeLabel(session.mode, now);
+  const sub = subtitle(session);
+  const where = entrypointLabel(session.entrypoint);
+  const clickable = canFocus(session);
+  const [focusError, setFocusError] = useState<string | null>(null);
+
+  // Auto-hide the inline focus error after ~3 seconds.
+  useEffect(() => {
+    if (!focusError) return;
+    const id = setTimeout(() => setFocusError(null), 3000);
+    return () => clearTimeout(id);
+  }, [focusError]);
+
+  function focus() {
+    if (!clickable) return;
+    focusSession(session.session_id).catch((e: unknown) =>
+      setFocusError(String(e)),
+    );
+  }
+
   return (
     <li className={`row row-${session.state}`}>
       <div className="row-main">
-        <span className="dot" style={{ background: color }} />
-        <span className="project" title={session.cwd}>
-          {session.project}
-        </span>
+        <div
+          className={`row-focus${clickable ? " clickable" : ""}`}
+          title={focusHint(session)}
+          role={clickable ? "button" : undefined}
+          tabIndex={clickable ? 0 : undefined}
+          onClick={clickable ? focus : undefined}
+          onKeyDown={
+            clickable
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    focus();
+                  }
+                }
+              : undefined
+          }
+        >
+          <span className="dot" style={{ background: color }} />
+          <span className="names">
+            <span className="project" title={session.cwd}>
+              {session.project}
+              {where && <span className="where">{where}</span>}
+            </span>
+            {sub && (
+              <span className="subtitle" title={sub}>
+                {sub}
+              </span>
+            )}
+          </span>
+        </div>
         <span className="label" style={{ color }}>
           {stateLabel(session.state)}
         </span>
+        {session.muted && (
+          <span className="muted-badge" title="Notifications muted">
+            🔕
+          </span>
+        )}
         {badge && <span className="badge">{badge}</span>}
         <span className="time">
           {formatDuration(now - session.state_since)}
         </span>
-        <ModeMenu sessionId={session.session_id} mode={session.mode} />
+        <ModeMenu
+          sessionId={session.session_id}
+          mode={session.mode}
+          muted={session.muted}
+        />
       </div>
+      {focusError && (
+        <div className="focus-error" role="alert">
+          {focusError}
+        </div>
+      )}
       {session.reply_open && <ReplyBox sessionId={session.session_id} />}
       {session.pending_permission ? (
         <PermissionCard

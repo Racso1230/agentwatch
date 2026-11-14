@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Mode } from "../types";
-import { setMode } from "../lib/api";
+import { setMode, setMuted } from "../lib/api";
 import { snoozeMode } from "../lib/respond";
 
 const OPTIONS: { label: string; kind: Mode["kind"] }[] = [
@@ -13,9 +13,11 @@ const OPTIONS: { label: string; kind: Mode["kind"] }[] = [
 export function ModeMenu({
   sessionId,
   mode,
+  muted,
 }: {
   sessionId: string;
   mode: Mode;
+  muted: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
@@ -98,6 +100,18 @@ export function ModeMenu({
                 {label}
               </button>
             ))}
+          <button
+            type="button"
+            role="menuitem"
+            className="menu-item"
+            onClick={() => {
+              setOpen(false);
+              setSnoozeOpen(false);
+              setMuted(sessionId, !muted).catch(() => {});
+            }}
+          >
+            {muted ? "Unmute" : "Mute notifications"}
+          </button>
         </div>
       )}
     </span>
