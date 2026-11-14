@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Mode, PermissionDecision, Settings } from "../types";
+import type {
+  Mode,
+  PermissionDecision,
+  Settings,
+  TranscriptItem,
+} from "../types";
 
 // Thin wrappers over the Tauri commands (camelCase argument names).
 export const answerPermission = (
@@ -26,3 +31,27 @@ export const setMuted = (sessionId: string, muted: boolean) =>
 
 export const focusSession = (sessionId: string) =>
   invoke<void>("focus_session", { sessionId });
+
+export const launchSession = (cwd: string, prompt: string) =>
+  invoke<string>("launch_session", { cwd, prompt });
+
+export const getTranscript = (sessionId: string) =>
+  invoke<TranscriptItem[]>("get_transcript", { sessionId });
+
+export const sendMessage = (sessionId: string, text: string) =>
+  invoke<void>("send_message", { sessionId, text });
+
+export const interruptSession = (sessionId: string) =>
+  invoke<void>("interrupt_session", { sessionId });
+
+export const endSession = (sessionId: string) =>
+  invoke<void>("end_session", { sessionId });
+
+export const ownedRunningCount = () => invoke<number>("owned_running_count");
+
+export const quitApp = () => invoke<void>("quit_app");
+
+export const openLauncher = () => invoke<void>("open_launcher");
+
+export const openTranscript = (sessionId: string) =>
+  invoke<void>("open_transcript", { sessionId });

@@ -320,6 +320,83 @@ async fn end_session(owned: tauri::State<'_, Owned>, session_id: String) -> Resu
     owned.end(&session_id)
 }
 
+/// Window label for a session's transcript. Labels may only contain letters,
+/// digits, `-`, `/`, `:` and `_`, so anything else in the id becomes `_`.
+pub fn transcript_label(session_id: &str) -> String {
+    let clean: String = session_id
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    format!("transcript-{clean}")
+}
+
+/// Show the window called `label` if it exists; returns whether it did.
+fn focus_existing(app: &tauri::AppHandle, label: &str) -> bool {
+    match app.get_webview_window(label) {
+        Some(w) => {
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+            true
+        }
+        None => false,
+    }
+}
+
+/// Open (or focus) the "new agent" launcher window. `async` so window
+/// creation does not run on the main thread (it would deadlock on Windows).
+#[tauri::command]
+async fn open_launcher(app: tauri::AppHandle) -> Result<(), String> {
+    if focus_existing(&app, "launcher") {
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        "launcher",
+        tauri::WebviewUrl::App("index.html?view=launcher".into()),
+    )
+    .title("New agent")
+    .inner_size(520.0, 460.0)
+    .min_inner_size(380.0, 340.0)
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Open (or focus) the transcript window for one owned session.
+#[tauri::command]
+async fn open_transcript(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    let label = transcript_label(&session_id);
+    if focus_existing(&app, &label) {
+        return Ok(());
+    }
+    // The id goes into a URL query: percent-encode the few unsafe characters.
+    let encoded: String = session_id
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect();
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        label,
+        tauri::WebviewUrl::App(format!("index.html?view=transcript&session={encoded}").into()),
+    )
+    .title("agentwatch transcript")
+    .inner_size(720.0, 640.0)
+    .min_inner_size(420.0, 320.0)
+    .build()
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// How many owned agents are still running (for the quit confirmation).
 #[tauri::command]
 fn owned_running_count(owned: tauri::State<'_, Owned>) -> usize {
@@ -348,6 +425,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         // Autostart stays off unless the setting turns it on.
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -366,7 +444,9 @@ pub fn run() {
             interrupt_session,
             end_session,
             owned_running_count,
-            quit_app
+            quit_app,
+            open_launcher,
+            open_transcript
         ])
         .setup(|app| {
             // `?` converts the error and returns early from setup; Tauri
@@ -470,4 +550,15 @@ pub fn run() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::transcript_label;
+
+    #[test]
+    fn labels_are_sanitised() {
+        assert_eq!(transcript_label("pending-abc"), "transcript-pending-abc");
+        assert_eq!(transcript_label("a b/c.d"), "transcript-a_b_c_d");
+    }
 }

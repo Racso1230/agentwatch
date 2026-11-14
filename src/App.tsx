@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Session } from "./types";
 import {
@@ -20,47 +18,9 @@ import { focusSession } from "./lib/api";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { useSettings } from "./lib/useSettings";
 import { panelAlpha } from "./lib/settings";
+import { useNow, useSessions } from "./lib/useSessions";
 import { PermissionCard } from "./components/PermissionCard";
 import "./App.css";
-
-/** Re-render every second so "time in state" ticks. */
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return now;
-}
-
-function useSessions(): Session[] {
-  const [sessions, setSessions] = useState<Session[]>([]);
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-
-    // Initial snapshot, then live updates pushed from Rust.
-    invoke<Session[]>("get_sessions")
-      .then((s) => {
-        if (!cancelled) setSessions(s);
-      })
-      .catch(() => {});
-    listen<Session[]>("sessions", (e) => setSessions(e.payload))
-      .then((fn) => {
-        if (cancelled) fn();
-        else unlisten = fn;
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, []);
-
-  return sessions;
-}
 
 function SessionRow({ session, now }: { session: Session; now: number }) {
   const color = stateColor(session.state);
