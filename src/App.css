@@ -159,3 +159,104 @@ code {
   background: rgba(255, 255, 255, 0.08);
   color: #c9ccd2;
 }
+
+button:focus-visible,
+textarea:focus-visible,
+.perm:focus-visible {
+  outline: 2px solid #4f9cff;
+  outline-offset: 1px;
+}
+
+.pending-hint {
+  color: #8a8f98;
+}
+
+.perm {
+  margin: 6px 0 2px 17px;
+  border-radius: 6px;
+}
+
+.perm-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.perm-tool {
+  color: #ffb020;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.perm-timer {
+  color: #8a8f98;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.perm-preview {
+  margin: 4px 0 6px;
+  padding: 6px 8px;
+  max-height: calc(6 * 1.4em + 12px);
+  overflow: auto;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #d6d9df;
+  font:
+    11px/1.4 ui-monospace,
+    "Cascadia Mono",
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}
+
+.perm-note {
+  margin: 4px 0 6px;
+  color: #c9ccd2;
+  font-size: 12px;
+}
+
+.perm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-allow {
+  background: #2f9e57;
+}
+.btn-allow:hover:not(:disabled) {
+  background: #38b566;
+}
+.btn-deny {
+  background: #c94545;
+}
+.btn-deny:hover:not(:disabled) {
+  background: #dc5555;
+}
+.btn-subtle {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #c9ccd2;
+}
+.btn-subtle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}

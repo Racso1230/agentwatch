@@ -9,6 +9,7 @@ import {
   stateColor,
   stateLabel,
 } from "./lib/sessions";
+import { PermissionCard } from "./components/PermissionCard";
 import "./App.css";
 
 /** Re-render every second so "time in state" ticks. */
@@ -66,8 +67,20 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
           {formatDuration(now - session.state_since)}
         </span>
       </div>
-      {session.state === "needs_you" && session.pending_tool && (
-        <div className="pending">{session.pending_tool}</div>
+      {session.pending_permission ? (
+        <PermissionCard
+          key={session.pending_permission.expires_at}
+          sessionId={session.session_id}
+          permission={session.pending_permission}
+          now={now}
+        />
+      ) : (
+        session.state === "needs_you" && (
+          <div className="pending">
+            {session.pending_tool ?? "Needs you"}
+            <span className="pending-hint"> · answer in Claude</span>
+          </div>
+        )
       )}
     </li>
   );
