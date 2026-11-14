@@ -100,7 +100,7 @@ export function runUninstall(path: string): string[] {
 }
 
 export function runStatus(path: string): string[] {
-  const { events, commands } = statusOf(readSettings(path));
+  const { events, commands, kinds } = statusOf(readSettings(path));
   const dir = process.env.AGENTWATCH_DIR || join(homedir(), ".agentwatch");
   const endpoint = join(dir, "endpoint.json");
   return [
@@ -108,6 +108,7 @@ export function runStatus(path: string): string[] {
     events.length
       ? `Installed: yes (${events.length} events: ${events.join(", ")})`
       : "Installed: no",
+    ...events.map((e) => `  ${e}: ${kinds[e]}`),
     ...commands.map((c) => `Command: ${c}`),
     existsSync(endpoint)
       ? `Widget: endpoint file present (${endpoint}); widget is probably running`

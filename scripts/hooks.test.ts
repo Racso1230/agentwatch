@@ -47,8 +47,25 @@ describe("hooks-config", () => {
       },
     ]);
     expect(out.hooks.Stop).toEqual([
-      { hooks: [{ type: "command", command: CMD, async: true, timeout: 5 }] },
+      { hooks: [{ type: "command", command: CMD, asyncRewake: true }] },
     ]);
+    expect(out.hooks.PermissionRequest).toEqual([
+      {
+        matcher: "*",
+        hooks: [{ type: "command", command: CMD, timeout: 130 }],
+      },
+    ]);
+    for (const e of EVENTS) {
+      if (e === "Stop" || e === "PermissionRequest") continue;
+      expect(out.hooks[e][0]).toHaveProperty("hooks", [
+        { type: "command", command: CMD, async: true, timeout: 5 },
+      ]);
+    }
+    expect(statusOf(out).kinds).toMatchObject({
+      PermissionRequest: "sync 130s",
+      Stop: "asyncRewake",
+      PreToolUse: "async",
+    });
     expect(out.hooks.UserPromptSubmit[0]).not.toHaveProperty("matcher");
   });
 
@@ -61,6 +78,37 @@ describe("hooks-config", () => {
     expect(out.hooks.PreToolUse[0]).toEqual(FOREIGN.hooks.PreToolUse[0]);
     expect(out.hooks.Stop).toHaveLength(2);
     expect(out.hooks.Stop[0]).toEqual(FOREIGN.hooks.Stop[0]);
+  });
+
+  test("migrates a Phase 1 install without duplicates", () => {
+    const old: Record<string, unknown[]> = {};
+    for (const e of EVENTS) {
+      old[e] = [
+        ...(e === "Stop" ? FOREIGN.hooks.Stop : []),
+        {
+          ...(e === "UserPromptSubmit" || e === "Stop" ? {} : { matcher: "*" }),
+          hooks: [{ type: "command", command: CMD, async: true, timeout: 5 }],
+        },
+      ];
+    }
+    const out = installHooks({ hooks: old }, CMD) as {
+      hooks: Record<string, { hooks: Record<string, unknown>[] }[]>;
+    };
+    expect(statusOf(out).commands).toEqual([CMD]);
+    expect(out.hooks.PermissionRequest).toHaveLength(1);
+    expect(out.hooks.PermissionRequest[0].hooks[0]).toEqual({
+      type: "command",
+      command: CMD,
+      timeout: 130,
+    });
+    expect(out.hooks.Stop).toHaveLength(2); // foreign + ours
+    expect(out.hooks.Stop[0]).toEqual(FOREIGN.hooks.Stop[0]);
+    expect(out.hooks.Stop[1].hooks[0]).toEqual({
+      type: "command",
+      command: CMD,
+      asyncRewake: true,
+    });
+    expect(installHooks(structuredClone(out), CMD)).toEqual(out);
   });
 
   test("install twice is idempotent", () => {

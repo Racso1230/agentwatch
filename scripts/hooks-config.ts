@@ -20,6 +20,26 @@ export const EVENTS = [
 /** Events with no matcher support (docs/hooks-reference.md 1.1). */
 const NO_MATCHER = new Set<string>(["UserPromptSubmit", "Stop"]);
 
+/**
+ * Handler shape per event. PermissionRequest is synchronous (the widget may
+ * answer) with a timeout above the server's 120 s hold; Stop uses asyncRewake
+ * so exit code 2 can wake Claude without blocking the terminal; the rest are
+ * fire-and-forget async hooks.
+ */
+function handlerFor(event: string, command: string): Json {
+  const base = { type: "command", command };
+  if (event === "PermissionRequest") return { ...base, timeout: 130 };
+  if (event === "Stop") return { ...base, asyncRewake: true };
+  return { ...base, async: true, timeout: 5 };
+}
+
+/** Human-readable hook kind, derived from a handler's fields. */
+export function kindOf(h: Json): string {
+  if (h.asyncRewake === true) return "asyncRewake";
+  if (h.async === true) return "async";
+  return typeof h.timeout === "number" ? `sync ${h.timeout}s` : "sync";
+}
+
 type Json = Record<string, unknown>;
 
 export class SettingsShapeError extends Error {}
@@ -97,7 +117,7 @@ export function installHooks(settings: Json, command: string): Json {
   for (const event of EVENTS) {
     const group: Json = {};
     if (!NO_MATCHER.has(event)) group.matcher = "*";
-    group.hooks = [{ type: "command", command, async: true, timeout: 5 }];
+    group.hooks = [handlerFor(event, command)];
     hooks[event] = [...groupsOf(hooks, event), group];
   }
   clean.hooks = hooks;
@@ -107,10 +127,12 @@ export function installHooks(settings: Json, command: string): Json {
 export function statusOf(settings: Json): {
   events: string[];
   commands: string[];
+  kinds: Record<string, string>;
 } {
   const hooks = hooksOf(settings);
   const events: string[] = [];
   const commands = new Set<string>();
+  const kinds: Record<string, string> = {};
   if (hooks) {
     for (const event of Object.keys(hooks)) {
       let found = false;
@@ -120,11 +142,12 @@ export function statusOf(settings: Json): {
           if (isOurs(h)) {
             found = true;
             commands.add((h as Json).command as string);
+            kinds[event] = kindOf(h as Json);
           }
         }
       }
       if (found) events.push(event);
     }
   }
-  return { events, commands: [...commands] };
+  return { events, commands: [...commands], kinds };
 }
