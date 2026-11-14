@@ -2,6 +2,8 @@ pub mod constants;
 pub mod endpoint;
 pub mod server;
 pub mod sessions;
+pub mod timers;
+pub mod transcript;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -13,6 +15,11 @@ use sessions::{SessionSnapshot, SessionStore};
 
 /// Name of the Tauri event the frontend listens to.
 pub const SESSIONS_EVENT: &str = "sessions";
+
+/// Send a snapshot to the frontend. A failed emit (window closing) is harmless.
+fn emit_sessions(app: &tauri::AppHandle, snapshot: Vec<SessionSnapshot>) {
+    let _ = app.emit(SESSIONS_EVENT, snapshot);
+}
 
 /// The `~/.agentwatch` directory, kept in Tauri's managed state so the exit
 /// handler can find it again.
@@ -45,9 +52,7 @@ pub fn run() {
             let state = AppState {
                 store,
                 token: Arc::from(token.as_str()),
-                on_change: Arc::new(move |snapshot| {
-                    let _ = handle.emit(SESSIONS_EVENT, snapshot);
-                }),
+                on_change: Arc::new(move |snapshot| emit_sessions(&handle, snapshot)),
                 now: server::now_millis,
             };
 
@@ -55,11 +60,25 @@ pub fn run() {
             // port for the shim and serve on Tauri's async runtime.
             let (listener, port) = tauri::async_runtime::block_on(server::bind())?;
             endpoint::write_endpoint(&dir, port, &token)?;
+            // Cloning `Arc`s / handles is cheap; each background task gets
+            // its own copy because `async move` takes ownership.
+            let sweep_store = state.store.clone();
+            let sweep_handle = app.handle().clone();
+            let watch_store = state.store.clone();
+            let watch_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = server::serve(listener, state).await {
                     eprintln!("agentwatch: server stopped: {e}");
                 }
             });
+            // Idle/stale sweep every few seconds.
+            tauri::async_runtime::spawn(timers::run(sweep_store, move |snapshot| {
+                emit_sessions(&sweep_handle, snapshot)
+            }));
+            // Transcript watcher for prompts denied outside the widget.
+            tauri::async_runtime::spawn(transcript::run(watch_store, move |snapshot| {
+                emit_sessions(&watch_handle, snapshot)
+            }));
             Ok(())
         })
         .build(tauri::generate_context!())
