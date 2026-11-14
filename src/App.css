@@ -870,3 +870,19 @@ textarea:focus-visible,
   font-size: 12px;
   color: #c9ccd2;
 }
+
+.owned-badge {
+  color: #4f9cff;
+}
+
+.quit-confirm {
+  margin: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 93, 93, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 93, 93, 0.1);
+}
+
+.quit-confirm p {
+  margin: 0 0 6px;
+}

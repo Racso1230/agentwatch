@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { Session } from "./types";
 import {
@@ -14,7 +15,13 @@ import {
 import { ModeMenu } from "./components/ModeMenu";
 import { modeLabel } from "./lib/respond";
 import { ReplyBox } from "./components/ReplyBox";
-import { focusSession } from "./lib/api";
+import {
+  focusSession,
+  openLauncher,
+  openTranscript,
+  ownedRunningCount,
+  quitApp,
+} from "./lib/api";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { useSettings } from "./lib/useSettings";
 import { panelAlpha } from "./lib/settings";
@@ -27,7 +34,8 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
   const badge = modeLabel(session.mode, now);
   const sub = subtitle(session);
   const where = entrypointLabel(session.entrypoint);
-  const clickable = canFocus(session);
+  const owned = session.owned;
+  const clickable = owned || canFocus(session);
   const [focusError, setFocusError] = useState<string | null>(null);
 
   // Auto-hide the inline focus error after ~3 seconds.
@@ -39,9 +47,11 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
 
   function focus() {
     if (!clickable) return;
-    focusSession(session.session_id).catch((e: unknown) =>
-      setFocusError(String(e)),
-    );
+    // Owned agents have no editor window: open their transcript instead.
+    const action = owned
+      ? openTranscript(session.session_id)
+      : focusSession(session.session_id);
+    action.catch((e: unknown) => setFocusError(String(e)));
   }
 
   return (
@@ -49,7 +59,7 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
       <div className="row-main">
         <div
           className={`row-focus${clickable ? " clickable" : ""}`}
-          title={focusHint(session)}
+          title={owned ? "Open transcript" : focusHint(session)}
           role={clickable ? "button" : undefined}
           tabIndex={clickable ? 0 : undefined}
           onClick={clickable ? focus : undefined}
@@ -68,7 +78,11 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
           <span className="names">
             <span className="project" title={session.cwd}>
               {session.project}
-              {where && <span className="where">{where}</span>}
+              {owned ? (
+                <span className="where owned-badge">agentwatch</span>
+              ) : (
+                where && <span className="where">{where}</span>
+              )}
             </span>
             {sub && (
               <span className="subtitle" title={sub}>
@@ -100,13 +114,16 @@ function SessionRow({ session, now }: { session: Session; now: number }) {
           {focusError}
         </div>
       )}
-      {session.reply_open && <ReplyBox sessionId={session.session_id} />}
+      {session.reply_open && !owned && (
+        <ReplyBox sessionId={session.session_id} />
+      )}
       {session.pending_permission ? (
         <PermissionCard
           key={session.pending_permission.expires_at}
           sessionId={session.session_id}
           permission={session.pending_permission}
           now={now}
+          owned={owned}
         />
       ) : (
         session.state === "needs_you" && (
@@ -136,6 +153,34 @@ export default function App() {
     setShowSettings(true);
   }
 
+  // Quit confirmation: number of owned agents that would stop, or null.
+  const [confirmQuit, setConfirmQuit] = useState<number | null>(null);
+
+  function requestClose() {
+    ownedRunningCount()
+      .then((n) => {
+        if (n > 0) setConfirmQuit(n);
+        else void getCurrentWindow().close();
+      })
+      .catch(() => void getCurrentWindow().close());
+  }
+
+  // The tray's Quit asks us to confirm when owned agents are running.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    listen<number>("confirm-quit", (e) => setConfirmQuit(e.payload))
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
   const alpha = panelAlpha(previewOpacity ?? settings?.opacity ?? 0.95);
 
   return (
@@ -150,6 +195,15 @@ export default function App() {
         <button
           type="button"
           className="gear"
+          aria-label="New agent"
+          title="New agent"
+          onClick={() => void openLauncher()}
+        >
+          ＋
+        </button>
+        <button
+          type="button"
+          className="gear"
           aria-label="Settings"
           aria-pressed={showSettings}
           title="Settings"
@@ -161,11 +215,41 @@ export default function App() {
           type="button"
           className="close"
           aria-label="Close agentwatch"
-          onClick={() => void getCurrentWindow().close()}
+          onClick={requestClose}
         >
           ×
         </button>
       </header>
+      {confirmQuit !== null && (
+        <div
+          className="quit-confirm"
+          role="alertdialog"
+          aria-label="Quit agentwatch"
+        >
+          <p>
+            {confirmQuit === 1
+              ? "1 agent launched from agentwatch will stop."
+              : `${confirmQuit} agents launched from agentwatch will stop.`}{" "}
+            Quit anyway?
+          </p>
+          <div className="perm-actions">
+            <button
+              type="button"
+              className="btn btn-deny"
+              onClick={() => void quitApp()}
+            >
+              Quit
+            </button>
+            <button
+              type="button"
+              className="btn btn-subtle"
+              onClick={() => setConfirmQuit(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {showSettings && settings ? (
         <SettingsPanel
           settings={settings}
