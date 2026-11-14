@@ -10,6 +10,7 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::path::Path;
 
 use crate::constants::TRANSCRIPT_POLL;
+use crate::pending::Pending;
 use crate::server::{now_millis, SharedStore};
 use crate::sessions::{Millis, SessionSnapshot, SessionState};
 
@@ -78,7 +79,7 @@ pub fn poll(sessions: &[SessionSnapshot], offsets: &mut HashMap<Key, u64>) -> Ve
 }
 
 /// Runs forever, polling every `TRANSCRIPT_POLL`.
-pub async fn run<F>(store: SharedStore, emit: F)
+pub async fn run<F>(store: SharedStore, pending: Pending, emit: F)
 where
     F: Fn(Vec<SessionSnapshot>),
 {
@@ -98,6 +99,8 @@ where
             let mut changed = false;
             for id in &interrupted {
                 changed |= guard.mark_interrupted(id, now);
+                // The terminal answered: stop holding the prompt in the widget.
+                pending.cancel_permission(id);
             }
             changed.then(|| guard.snapshot())
         };

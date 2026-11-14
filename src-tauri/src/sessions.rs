@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::constants::{DROP_AFTER_END, DROP_AFTER_STALE, IDLE_AFTER, STALE_AFTER};
+use crate::pending::PermissionInfo;
+use crate::policy::Mode;
 
 /// Unix time in milliseconds. A plain alias keeps signatures readable.
 pub type Millis = i64;
@@ -42,6 +44,16 @@ pub struct Session {
     pub pending_tool: Option<String>,
     pub transcript_path: Option<String>,
     pub ended_at: Option<Millis>,
+    /// Widget behaviour for this session (ask / auto-safe / hands off / snooze).
+    pub mode: Mode,
+    /// A permission prompt the widget is holding open for the user.
+    pub pending_permission: Option<PermissionInfo>,
+    /// `true` while the widget shows a reply box for this session.
+    pub reply_open: bool,
+    /// Internal: identifies which held `/stop` request owns `reply_open`, so
+    /// a replaced request cannot close its successor's box.
+    #[serde(skip)]
+    reply_ticket: u64,
     /// Internal: a PermissionRequest was seen this turn, so a later
     /// `Notification(permission_prompt)` is only a confirmation, not news.
     /// `skip` keeps it out of the JSON sent to the frontend.
@@ -180,6 +192,10 @@ impl SessionStore {
                     pending_tool: None,
                     transcript_path: None,
                     ended_at: None,
+                    mode: Mode::default(),
+                    pending_permission: None,
+                    reply_open: false,
+                    reply_ticket: 0,
                     saw_permission_request: false,
                 });
                 changed = true;
@@ -290,7 +306,89 @@ impl SessionStore {
                 s.ended_at = None;
             }
         }
+
+        // The session moved on, so any prompt / reply box the widget was
+        // holding is obsolete (the terminal answered first, or the user typed).
+        if matches!(
+            name,
+            "PostToolUse" | "PostToolUseFailure" | "Stop" | "UserPromptSubmit" | "SessionEnd"
+        ) && s.pending_permission.take().is_some()
+        {
+            changed = true;
+        }
+        if matches!(name, "UserPromptSubmit" | "SessionEnd") && s.reply_open {
+            s.reply_open = false;
+            changed = true;
+        }
         changed
+    }
+
+    pub fn mode(&self, session_id: &str) -> Mode {
+        self.get(session_id).map(|s| s.mode).unwrap_or_default()
+    }
+
+    fn find_mut(&mut self, session_id: &str) -> Option<&mut Session> {
+        self.sessions
+            .iter_mut()
+            .find(|s| s.session_id == session_id)
+    }
+
+    /// Returns `true` if the mode actually changed.
+    pub fn set_mode(&mut self, session_id: &str, mode: Mode) -> bool {
+        match self.find_mut(session_id) {
+            Some(s) if s.mode != mode => {
+                s.mode = mode;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    pub fn set_pending_permission(&mut self, session_id: &str, info: PermissionInfo) -> bool {
+        match self.find_mut(session_id) {
+            Some(s) => {
+                s.pending_permission = Some(info);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Clear the held prompt. With `Some(ticket)` only if that ticket still
+    /// owns it (a newer request may have replaced it); `None` = always.
+    pub fn clear_pending_permission(&mut self, session_id: &str, ticket: Option<u64>) -> bool {
+        match self.find_mut(session_id) {
+            Some(s)
+                if s.pending_permission
+                    .as_ref()
+                    .is_some_and(|p| ticket.is_none_or(|t| p.ticket == t)) =>
+            {
+                s.pending_permission = None;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    pub fn open_reply(&mut self, session_id: &str, ticket: u64) -> bool {
+        match self.find_mut(session_id) {
+            Some(s) => {
+                s.reply_open = true;
+                s.reply_ticket = ticket;
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn clear_reply(&mut self, session_id: &str, ticket: u64) -> bool {
+        match self.find_mut(session_id) {
+            Some(s) if s.reply_open && s.reply_ticket == ticket => {
+                s.reply_open = false;
+                true
+            }
+            _ => false,
+        }
     }
 
     /// The transcript watcher saw "[Request interrupted by user": the prompt
@@ -305,6 +403,7 @@ impl SessionStore {
                 s.state = SessionState::WaitingForReply;
                 s.state_since = now;
                 s.pending_tool = None;
+                s.pending_permission = None;
                 s.saw_permission_request = false;
                 true
             }
@@ -319,6 +418,11 @@ impl SessionStore {
         let before = self.sessions.len();
         let mut changed = false;
         for s in &mut self.sessions {
+            // An expired snooze goes back to "ask me".
+            if matches!(s.mode, Mode::Snoozed { until } if until <= now) {
+                s.mode = Mode::AskMe;
+                changed = true;
+            }
             let silent_for = now - s.last_event_at;
             match s.state {
                 SessionState::WaitingForReply
@@ -591,5 +695,102 @@ mod tests {
         assert_eq!(store.get("s").unwrap().state, SessionState::Stale);
         store.sweep(31 * 60_000 + 2 * 3600 * 1000);
         assert!(store.snapshot().is_empty());
+    }
+
+    fn ev(name: &str) -> HookEvent {
+        event(json!({"hook_event_name": name, "session_id": "s"}))
+    }
+
+    fn info(ticket: u64) -> PermissionInfo {
+        PermissionInfo {
+            tool_name: "Bash".into(),
+            input_preview: "ls".into(),
+            expires_at: 99,
+            ticket,
+        }
+    }
+
+    #[test]
+    fn mode_defaults_to_ask_me_and_snooze_expires_in_sweep() {
+        let mut store = SessionStore::new();
+        store.apply(&ev("Stop"), 0);
+        assert_eq!(store.get("s").unwrap().mode, Mode::AskMe);
+        assert_eq!(store.mode("unknown"), Mode::AskMe);
+        assert!(store.set_mode("s", Mode::Snoozed { until: 10_000 }));
+        assert!(!store.set_mode("s", Mode::Snoozed { until: 10_000 }));
+        assert!(!store.set_mode("nope", Mode::HandsOff));
+        assert!(!store.sweep(9_999));
+        assert!(store.sweep(10_000));
+        assert_eq!(store.get("s").unwrap().mode, Mode::AskMe);
+        // Other modes are never touched by the sweep.
+        store.set_mode("s", Mode::HandsOff);
+        assert!(!store.sweep(20_000));
+        assert_eq!(store.get("s").unwrap().mode, Mode::HandsOff);
+    }
+
+    #[test]
+    fn pending_permission_cleared_by_moving_events() {
+        for name in [
+            "PostToolUse",
+            "PostToolUseFailure",
+            "Stop",
+            "UserPromptSubmit",
+            "SessionEnd",
+        ] {
+            let mut store = SessionStore::new();
+            store.apply(&ev("Stop"), 0);
+            assert!(store.set_pending_permission("s", info(1)));
+            assert!(store.apply(&ev(name), 1));
+            assert!(
+                store.get("s").unwrap().pending_permission.is_none(),
+                "{name}"
+            );
+        }
+        // Other events leave it alone.
+        let mut store = SessionStore::new();
+        store.apply(&ev("Stop"), 0);
+        store.set_pending_permission("s", info(1));
+        store.apply(&ev("PreToolUse"), 1);
+        assert!(store.get("s").unwrap().pending_permission.is_some());
+    }
+
+    #[test]
+    fn ticketed_clear_ignores_replaced_requests() {
+        let mut store = SessionStore::new();
+        store.apply(&ev("Stop"), 0);
+        store.set_pending_permission("s", info(2));
+        assert!(!store.clear_pending_permission("s", Some(1)));
+        assert!(store.clear_pending_permission("s", Some(2)));
+        assert!(!store.clear_pending_permission("s", None));
+        store.open_reply("s", 5);
+        assert!(!store.clear_reply("s", 4));
+        assert!(store.get("s").unwrap().reply_open);
+        assert!(store.clear_reply("s", 5));
+    }
+
+    #[test]
+    fn reply_closed_by_prompt_or_end_not_by_stop() {
+        let mut store = SessionStore::new();
+        store.apply(&ev("Stop"), 0);
+        store.open_reply("s", 1);
+        store.apply(&ev("Stop"), 1);
+        assert!(store.get("s").unwrap().reply_open);
+        store.apply(&ev("UserPromptSubmit"), 2);
+        assert!(!store.get("s").unwrap().reply_open);
+        store.open_reply("s", 2);
+        store.apply(&ev("SessionEnd"), 3);
+        assert!(!store.get("s").unwrap().reply_open);
+    }
+
+    #[test]
+    fn interrupt_clears_pending_permission() {
+        let mut store = SessionStore::new();
+        let p = event(
+            json!({"hook_event_name": "PermissionRequest", "session_id": "s", "tool_name": "Bash"}),
+        );
+        store.apply(&p, 0);
+        store.set_pending_permission("s", info(1));
+        assert!(store.mark_interrupted("s", 5));
+        assert!(store.get("s").unwrap().pending_permission.is_none());
     }
 }
