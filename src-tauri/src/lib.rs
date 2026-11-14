@@ -1,6 +1,7 @@
 pub mod config;
 pub mod constants;
 pub mod endpoint;
+pub mod focus;
 pub mod notify;
 pub mod pending;
 pub mod policy;
@@ -111,6 +112,39 @@ fn get_settings(state: tauri::State<'_, SettingsState>) -> Settings {
 #[tauri::command]
 fn update_settings(app: tauri::AppHandle, settings: Settings) -> Result<Settings, String> {
     commit_settings(&app, settings)
+}
+
+/// Mute or unmute desktop notifications for one session. Returns whether
+/// anything changed.
+#[tauri::command]
+fn set_muted(state: tauri::State<'_, AppState>, session_id: String, muted: bool) -> bool {
+    let snapshot = {
+        let mut store = state.store.lock().unwrap_or_else(|e| e.into_inner());
+        if store.set_muted(&session_id, muted) {
+            Some(store.snapshot())
+        } else {
+            None
+        }
+    };
+    match snapshot {
+        Some(snapshot) => {
+            (state.on_change)(snapshot);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Bring a VS Code session's window to the front. Terminal sessions return
+/// an error string the UI can show.
+#[tauri::command]
+fn focus_session(state: tauri::State<'_, AppState>, session_id: String) -> Result<(), String> {
+    let (entrypoint, cwd) = {
+        let store = state.store.lock().unwrap_or_else(|e| e.into_inner());
+        let s = store.get(&session_id).ok_or("unknown session")?;
+        (s.entrypoint.clone(), s.cwd.clone())
+    };
+    focus::focus_vscode(entrypoint.as_deref(), &cwd)
 }
 
 /// Show a desktop notification for each session change worth one, then send
@@ -226,6 +260,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             update_settings,
+            set_muted,
+            focus_session,
             get_sessions,
             answer_permission,
             send_reply,

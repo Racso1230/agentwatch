@@ -54,3 +54,16 @@ export interface Session {
   /** Muted sessions raise no desktop notifications. */
   muted: boolean;
 }
+
+/** User settings (Rust `settings::Settings`). Saved in ~/.agentwatch/settings.json. */
+export interface Settings {
+  /** Window opacity, 0.4 to 1.0. */
+  opacity: number;
+  /** Clicks pass through the widget; only the tray menu can turn it off. */
+  click_through: boolean;
+  notify_needs_you: boolean;
+  notify_finished: boolean;
+  sound: boolean;
+  autostart: boolean;
+  snap_to_edges: boolean;
+}
