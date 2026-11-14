@@ -53,6 +53,8 @@ export interface Session {
   first_prompt: string | null;
   /** Muted sessions raise no desktop notifications. */
   muted: boolean;
+  /** Launched from agentwatch itself; replies go through its own process. */
+  owned: boolean;
 }
 
 /** User settings (Rust `settings::Settings`). Saved in ~/.agentwatch/settings.json. */
@@ -66,4 +68,48 @@ export interface Settings {
   sound: boolean;
   autostart: boolean;
   snap_to_edges: boolean;
+  /** Folders agents were launched in, most recent first (max 8). */
+  recent_folders: string[];
+}
+
+/** One line of an owned session's transcript (Rust `owned::TranscriptItem`, tag = "kind"). */
+export type TranscriptItem =
+  | { kind: "user"; text: string }
+  | { kind: "assistant_text"; text: string }
+  | {
+      kind: "tool_use";
+      id: string;
+      name: string;
+      /** One line, e.g. "Bash: git status" or "Edit App.tsx". */
+      summary: string;
+      /** The tool input as JSON text, cut to about 2 KB. */
+      input_json: string;
+    }
+  | {
+      kind: "tool_result";
+      tool_use_id: string;
+      is_error: boolean;
+      /** First ~2 KB of the output. */
+      output_preview: string;
+    }
+  | {
+      kind: "turn_result";
+      subtype: string;
+      /** Running total for the whole session, in US dollars. */
+      cost_usd: number;
+      duration_ms: number;
+    }
+  | { kind: "notice"; text: string };
+
+/** Payload of the `transcript` event: items appended at `from_index`. */
+export interface TranscriptEvent {
+  session_id: string;
+  from_index: number;
+  items: TranscriptItem[];
+}
+
+/** Payload of the `session-rekeyed` event (temporary id became the real one). */
+export interface SessionRekeyed {
+  from: string;
+  to: string;
 }

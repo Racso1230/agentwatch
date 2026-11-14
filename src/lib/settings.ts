@@ -27,4 +27,5 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: false,
   autostart: false,
   snap_to_edges: true,
+  recent_folders: [],
 };

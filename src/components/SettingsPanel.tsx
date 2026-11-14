@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 import type { Settings } from "../types";
 import { clampOpacity, opacityLabel } from "../lib/settings";
 
-type ToggleKey = Exclude<keyof Settings, "opacity">;
+type ToggleKey = Exclude<keyof Settings, "opacity" | "recent_folders">;
 
 const TOGGLES: { key: ToggleKey; label: string }[] = [
   { key: "click_through", label: "Click-through" },

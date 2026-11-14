@@ -19,6 +19,11 @@ pub struct Config {
     pub permission_timeout_secs: u64,
     /// How long `/stop` keeps the reply box open.
     pub reply_max_wait_secs: u64,
+    /// Full path to the `claude` executable, if it is not on PATH.
+    pub claude_path: Option<String>,
+    /// Advanced / tests: a whole command (program + leading args) used
+    /// instead of `claude`, e.g. `["bun", "fake-claude.ts"]`.
+    pub claude_command: Option<Vec<String>>,
 }
 
 impl Default for Config {
@@ -44,6 +49,8 @@ impl Default for Config {
             .collect(),
             permission_timeout_secs: 120,
             reply_max_wait_secs: 1800,
+            claude_path: None,
+            claude_command: None,
         }
     }
 }

@@ -30,6 +30,7 @@ function make(id: string, state: SessionState): Session {
     claude_pid: null,
     first_prompt: null,
     muted: false,
+    owned: false,
   };
 }
 

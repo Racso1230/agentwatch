@@ -290,12 +290,16 @@ async fn post_stop(
     let Some(session_id) = session_of(&event) else {
         return no_reply;
     };
+    // Owned sessions are replied to through the process's stdin (the
+    // transcript window), never through a Stop hook reply box.
+    let (owned, mode) = {
+        let store = state.store.lock().unwrap_or_else(|e| e.into_inner());
+        (store.is_owned(&session_id), store.mode(&session_id))
+    };
+    if owned {
+        return no_reply;
+    }
     // Hands off / snoozed: stay silent, no reply box.
-    let mode = state
-        .store
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .mode(&session_id);
     if mode.is_silent((state.now)()) {
         return no_reply;
     }
@@ -812,6 +816,21 @@ mod tests {
         );
         state.answer_permission("s1", PermissionAnswer::Allow);
         assert_eq!(second.await.unwrap().1, json!({"decision": "allow"}));
+    }
+
+    #[tokio::test]
+    async fn stop_for_an_owned_session_returns_null_immediately() {
+        let (state, _) = test_state();
+        let app = router(state.clone());
+        call(&app, "/event", &plain("SessionStart")).await;
+        state.store.lock().unwrap().mark_owned("s1", "/work", 1_000);
+        // No waiting: the call returns at once and no reply box opens.
+        let (status, body) = call(&app, "/stop", &plain("Stop")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, json!({"reply": null}));
+        assert!(!state.pending.has_reply("s1"));
+        assert!(!session(&state).reply_open);
+        assert_eq!(session(&state).state, SessionState::WaitingForReply);
     }
 
     #[tokio::test]

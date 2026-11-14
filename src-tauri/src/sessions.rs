@@ -59,6 +59,9 @@ pub struct Session {
     pub first_prompt: Option<String>,
     /// Muted sessions never raise desktop notifications.
     pub muted: bool,
+    /// `true` for sessions launched from agentwatch itself (see `owned.rs`).
+    /// Replies to those go through the process's stdin, not a Stop hook.
+    pub owned: bool,
     /// Internal: identifies which held `/stop` request owns `reply_open`, so
     /// a replaced request cannot close its successor's box.
     #[serde(skip)]
@@ -68,6 +71,34 @@ pub struct Session {
     /// `skip` keeps it out of the JSON sent to the frontend.
     #[serde(skip)]
     saw_permission_request: bool,
+}
+
+impl Session {
+    /// A fresh card with nothing known yet except its id.
+    fn blank(session_id: &str, now: Millis) -> Session {
+        Session {
+            session_id: session_id.to_string(),
+            cwd: String::new(),
+            project: "unknown".to_string(),
+            state: SessionState::WaitingForReply,
+            state_since: now,
+            last_event_at: now,
+            permission_mode: None,
+            pending_tool: None,
+            transcript_path: None,
+            ended_at: None,
+            mode: Mode::default(),
+            pending_permission: None,
+            reply_open: false,
+            entrypoint: None,
+            claude_pid: None,
+            first_prompt: None,
+            muted: false,
+            owned: false,
+            reply_ticket: 0,
+            saw_permission_request: false,
+        }
+    }
 }
 
 /// What we send to the frontend. Same shape as `Session`.
@@ -220,27 +251,7 @@ impl SessionStore {
             None => {
                 // Unknown session on any event: create a card (the widget may
                 // have started mid-session).
-                self.sessions.push(Session {
-                    session_id: session_id.to_string(),
-                    cwd: String::new(),
-                    project: "unknown".to_string(),
-                    state: SessionState::WaitingForReply,
-                    state_since: now,
-                    last_event_at: now,
-                    permission_mode: None,
-                    pending_tool: None,
-                    transcript_path: None,
-                    ended_at: None,
-                    mode: Mode::default(),
-                    pending_permission: None,
-                    reply_open: false,
-                    entrypoint: None,
-                    claude_pid: None,
-                    first_prompt: None,
-                    muted: false,
-                    reply_ticket: 0,
-                    saw_permission_request: false,
-                });
+                self.sessions.push(Session::blank(session_id, now));
                 changed = true;
                 self.sessions.len() - 1
             }
@@ -383,6 +394,106 @@ impl SessionStore {
             changed = true;
         }
         changed
+    }
+
+    /// Make sure a card exists for `session_id` and flag it as launched by
+    /// agentwatch. Hook events and owned-process data share one card because
+    /// both are keyed by the same session id.
+    pub fn mark_owned(&mut self, session_id: &str, cwd: &str, now: Millis) {
+        let idx = match self
+            .sessions
+            .iter()
+            .position(|s| s.session_id == session_id)
+        {
+            Some(i) => i,
+            None => {
+                self.sessions.push(Session::blank(session_id, now));
+                self.sessions.len() - 1
+            }
+        };
+        let s = &mut self.sessions[idx];
+        s.owned = true;
+        if s.cwd.is_empty() && !cwd.is_empty() {
+            s.cwd = cwd.to_string();
+            s.project = project_name(cwd);
+        }
+        s.last_event_at = now;
+    }
+
+    /// Create the card for a just-launched session under its temporary id.
+    pub fn add_owned(&mut self, temp_id: &str, cwd: &str, prompt: &str, now: Millis) {
+        self.mark_owned(temp_id, cwd, now);
+        if let Some(s) = self.sessions.iter_mut().find(|s| s.session_id == temp_id) {
+            s.state = SessionState::Working;
+            s.first_prompt = first_prompt_words(prompt);
+        }
+    }
+
+    /// Change a card's id from `from` to `to` (the real id arrived). If hook
+    /// events already created a card for `to`, the temporary card is dropped
+    /// and the existing one is flagged owned, so there is never a duplicate.
+    pub fn rekey(&mut self, from: &str, to: &str) -> bool {
+        if from == to {
+            return false;
+        }
+        let Some(from_idx) = self.sessions.iter().position(|s| s.session_id == from) else {
+            return false;
+        };
+        if self.sessions.iter().any(|s| s.session_id == to) {
+            let old = self.sessions.remove(from_idx);
+            if let Some(s) = self.sessions.iter_mut().find(|s| s.session_id == to) {
+                s.owned = true;
+                if s.cwd.is_empty() {
+                    s.cwd = old.cwd;
+                    s.project = old.project;
+                }
+                if s.first_prompt.is_none() {
+                    s.first_prompt = old.first_prompt;
+                }
+            }
+        } else {
+            self.sessions[from_idx].session_id = to.to_string();
+        }
+        true
+    }
+
+    /// Drive the state of an owned card from process events (hooks do the
+    /// same job, but this keeps the card right if a hook is missing).
+    /// `only_if` limits the change to cards currently in that state.
+    pub fn set_owned_state(
+        &mut self,
+        session_id: &str,
+        state: SessionState,
+        only_if: Option<SessionState>,
+        now: Millis,
+    ) -> bool {
+        let Some(s) = self
+            .sessions
+            .iter_mut()
+            .find(|s| s.session_id == session_id && s.owned)
+        else {
+            return false;
+        };
+        if s.state == state || only_if.is_some_and(|c| s.state != c) {
+            return false;
+        }
+        // An ended process cannot come back to life.
+        if s.state == SessionState::Ended {
+            return false;
+        }
+        s.state = state;
+        s.state_since = now;
+        s.pending_tool = None;
+        if state == SessionState::Ended {
+            s.ended_at = Some(now);
+            s.pending_permission = None;
+            s.reply_open = false;
+        }
+        true
+    }
+
+    pub fn is_owned(&self, session_id: &str) -> bool {
+        self.get(session_id).is_some_and(|s| s.owned)
     }
 
     pub fn mode(&self, session_id: &str) -> Mode {
@@ -969,5 +1080,63 @@ mod tests {
         store.set_pending_permission("s", info(1));
         assert!(store.mark_interrupted("s", 5));
         assert!(store.get("s").unwrap().pending_permission.is_none());
+    }
+
+    #[test]
+    fn owned_card_is_rekeyed_to_the_real_id() {
+        let mut store = SessionStore::new();
+        store.add_owned("pending-1", "/work/proj", "do the thing now please ok", 1);
+        let s = store.get("pending-1").unwrap();
+        assert!(s.owned);
+        assert_eq!(s.state, SessionState::Working);
+        assert_eq!(s.project, "proj");
+        assert!(store.rekey("pending-1", "real"));
+        assert!(store.get("pending-1").is_none());
+        assert!(store.get("real").unwrap().owned);
+        assert!(!store.rekey("pending-1", "real")); // already moved
+    }
+
+    #[test]
+    fn rekey_merges_with_a_card_created_by_hooks_first() {
+        let mut store = SessionStore::new();
+        store.add_owned("pending-1", "/work/proj", "hello", 1);
+        // The SessionStart hook arrives before system/init is processed.
+        store.apply(
+            &event(json!({"hook_event_name": "SessionStart", "session_id": "real"})),
+            2,
+        );
+        assert!(store.rekey("pending-1", "real"));
+        let all = store.snapshot();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].session_id, "real");
+        assert!(all[0].owned);
+        assert_eq!(all[0].cwd, "/work/proj");
+        assert_eq!(all[0].first_prompt.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn owned_state_changes_only_touch_owned_live_cards() {
+        let mut store = SessionStore::new();
+        store.apply(
+            &event(json!({"hook_event_name": "SessionStart", "session_id": "hook"})),
+            0,
+        );
+        assert!(!store.set_owned_state("hook", SessionState::Ended, None, 1));
+        store.add_owned("o", "/p", "x", 0);
+        assert!(!store.set_owned_state(
+            "o",
+            SessionState::WaitingForReply,
+            Some(SessionState::Idle),
+            1
+        ));
+        assert!(store.set_owned_state(
+            "o",
+            SessionState::WaitingForReply,
+            Some(SessionState::Working),
+            1
+        ));
+        assert!(store.set_owned_state("o", SessionState::Ended, None, 2));
+        assert_eq!(store.get("o").unwrap().ended_at, Some(2));
+        assert!(!store.set_owned_state("o", SessionState::Working, None, 3));
     }
 }

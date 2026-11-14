@@ -29,6 +29,20 @@ pub struct Settings {
     /// Start the widget when the user logs in.
     pub autostart: bool,
     pub snap_to_edges: bool,
+    /// Folders agents were launched in, most recent first (max 8).
+    pub recent_folders: Vec<String>,
+}
+
+/// How many recent folders are remembered.
+pub const MAX_RECENT_FOLDERS: usize = 8;
+
+/// Windows paths are case-insensitive, so `C:\A` and `c:\a` are one folder.
+fn same_folder(a: &str, b: &str) -> bool {
+    if cfg!(windows) {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
+    }
 }
 
 impl Default for Settings {
@@ -41,6 +55,7 @@ impl Default for Settings {
             sound: false,
             autostart: false,
             snap_to_edges: true,
+            recent_folders: Vec::new(),
         }
     }
 }
@@ -54,7 +69,16 @@ impl Settings {
         } else {
             Settings::default().opacity
         };
+        self.recent_folders.truncate(MAX_RECENT_FOLDERS);
         self
+    }
+
+    /// Put `folder` first in the recent list (removing an older copy) and
+    /// keep at most `MAX_RECENT_FOLDERS`.
+    pub fn add_recent_folder(&mut self, folder: &str) {
+        self.recent_folders.retain(|f| !same_folder(f, folder));
+        self.recent_folders.insert(0, folder.to_string());
+        self.recent_folders.truncate(MAX_RECENT_FOLDERS);
     }
 
     /// Read `<dir>/settings.json`; anything wrong gives the defaults.
@@ -142,6 +166,26 @@ mod tests {
         s.save(dir.path()).unwrap();
         assert_eq!(Settings::load(dir.path()), s);
         assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
+    fn recent_folders_dedup_order_and_cap() {
+        let mut s = Settings::default();
+        for i in 0..10 {
+            s.add_recent_folder(&format!("/p/{i}"));
+        }
+        assert_eq!(s.recent_folders.len(), 8);
+        assert_eq!(s.recent_folders[0], "/p/9");
+        s.add_recent_folder("/p/5");
+        assert_eq!(s.recent_folders[0], "/p/5");
+        assert_eq!(s.recent_folders.iter().filter(|f| *f == "/p/5").count(), 1);
+        assert_eq!(s.recent_folders.len(), 8);
+        if cfg!(windows) {
+            s.add_recent_folder("/P/5");
+            let same = |f: &&String| f.eq_ignore_ascii_case("/p/5");
+            assert_eq!(s.recent_folders.iter().filter(same).count(), 1);
+            assert_eq!(s.recent_folders[0], "/P/5");
+        }
     }
 
     #[test]
