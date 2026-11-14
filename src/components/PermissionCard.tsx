@@ -8,13 +8,20 @@ interface Props {
   sessionId: string;
   permission: PendingPermission;
   now: number;
+  /** Owned agents have no terminal to fall back to: hide "Let Claude ask". */
+  owned?: boolean;
 }
 
 /**
  * Expanded "needs you" card for a held permission request. The parent keys it
  * by `expires_at`, so a fresh request remounts it and re-enables the buttons.
  */
-export function PermissionCard({ sessionId, permission, now }: Props) {
+export function PermissionCard({
+  sessionId,
+  permission,
+  now,
+  owned = false,
+}: Props) {
   const [busy, setBusy] = useState(false);
   const question = isQuestionTool(permission.tool_name);
 
@@ -50,7 +57,11 @@ export function PermissionCard({ sessionId, permission, now }: Props) {
         </span>
       </div>
       {question ? (
-        <p className="perm-note">Answer in Claude</p>
+        <p className="perm-note">
+          {owned
+            ? "Questions cannot be answered in headless mode"
+            : "Answer in Claude"}
+        </p>
       ) : (
         <pre className="perm-preview">{permission.input_preview}</pre>
       )}
@@ -77,15 +88,20 @@ export function PermissionCard({ sessionId, permission, now }: Props) {
             </button>
           </>
         )}
-        <button
-          type="button"
-          className="btn btn-subtle"
-          aria-label="Let Claude ask in the terminal"
-          disabled={busy}
-          onClick={() => answer("none")}
-        >
-          Let Claude ask
-        </button>
+        {owned && !question && (
+          <span className="perm-denied-note">Unanswered = denied</span>
+        )}
+        {!owned && (
+          <button
+            type="button"
+            className="btn btn-subtle"
+            aria-label="Let Claude ask in the terminal"
+            disabled={busy}
+            onClick={() => answer("none")}
+          >
+            Let Claude ask
+          </button>
+        )}
       </div>
     </div>
   );
