@@ -53,13 +53,15 @@ This document describes **what to build and in what order**, not how to build it
 - Stale-session handling (a session that goes quiet eventually drops off or greys out).
 - A setup step that installs the hook config for the user.
 
-**Done when**
-- Running two or three agents (in a terminal and in VS Code) shows them all in the widget with correct states, live.
-- Closing the widget has no effect on the agents.
+**Status:** Phase 1 complete (2026-11-14). The hook is a Bun shim (`shim/agentwatch-hook.ts`, async hooks), installed with `bun run hooks:install`. A deny made outside the widget is cleared by the transcript watcher.
 
-**Open questions for the user**
-- One compact pill that expands, or always-visible cards?
-- What should "idle" mean, and how long before a session disappears?
+**Done when**
+- [x] Running two or three agents (in a terminal and in VS Code) shows them all in the widget with correct states, live.
+- [x] Closing the widget has no effect on the agents. Verified after both a clean close and a force-kill: zero hook errors in the transcript, and the shim exits 0 in about 75 ms.
+
+**Open questions for the user** (answered)
+- Always-visible list. The pill may come later.
+- Idle after 5 min waiting, grey after 30 min silent, dropped 10 s after exit or after 2 h stale (see `src-tauri/src/constants.rs`).
 
 ---
 
@@ -98,6 +100,7 @@ This document describes **what to build and in what order**, not how to build it
 - Opacity control and click-through mode (so it never gets in the way while gaming).
 - Click a card to bring the agent's window (terminal or VS Code) to the front.
 - Animations for state changes (e.g. pulsing while working).
+- Tell apart sessions in the same folder (e.g. a short tag from the first prompt or the session id), since today two rows can both read "orbis-scriptor".
 - Start on login (optional).
 - Settings screen for everything above.
 
