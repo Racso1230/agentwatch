@@ -78,14 +78,20 @@ This document describes **what to build and in what order**, not how to build it
 - **Local security:** the listener only accepts connections from the hook binary (e.g. a per-install token).
 - Investigate which other interactive prompts (agent questions, plan approval) can be handled through hooks, and document the ones that can't.
 
-**Done when**
-- The user can run a full session in VS Code with VS Code minimised, handling every permission prompt and follow-up from the widget.
-- Killing the widget mid-prompt leaves the agent working normally.
+**Status:** Phase 2 complete (2026-11-14).
+- **Permission prompts:** a synchronous `PermissionRequest` hook. It runs alongside the in-agent prompt, and the first answer wins.
+- **Replies:** a `Stop` hook with `asyncRewake`. A reply reaches Claude as "Stop hook feedback", not as a user turn (see Phase 4).
+- **Verified live:** widget Approve and Deny in a terminal session, and replies waking a VS Code session.
+- **Unit-tested only:** auto-safe, hands off, snooze, and AskUserQuestion/ExitPlanMode (shown as "Answer in Claude"). Their payloads haven't been captured yet.
 
-**Open questions for the user**
-- Default timeout length?
-- What counts as "safe" for auto-approve?
-- Should replies support multi-line input or attachments (e.g. pasting a file path)?
+**Done when**
+- [x] The user can run a full session in VS Code with VS Code minimised, handling every permission prompt and follow-up from the widget.
+- [x] Killing the widget mid-prompt leaves the agent working normally. A held request exits 0 silently about 0.2 s after the kill, and the in-agent prompt decides.
+
+**Open questions for the user** (answered)
+- 2 min timeout (`permission_timeout_secs` in `~/.agentwatch/config.json`).
+- Read-only tools and read-only shell commands. Chaining, redirection and destructive commands always ask (`src-tauri/src/policy.rs`).
+- Multi-line text replies, with no attachments.
 
 ---
 
