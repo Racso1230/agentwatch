@@ -1,6 +1,7 @@
 pub mod config;
 pub mod constants;
 pub mod endpoint;
+pub mod notify;
 pub mod pending;
 pub mod policy;
 pub mod server;
@@ -16,9 +17,11 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{Emitter, Manager, RunEvent};
 use tauri_plugin_autostart::ManagerExt as _;
+use tauri_plugin_notification::NotificationExt as _;
 use tauri_plugin_window_state::StateFlags;
 
 use config::Config;
+use notify::Notifier;
 use pending::{Pending, PermissionAnswer};
 use policy::Mode;
 use server::{AppState, SharedStore};
@@ -110,9 +113,45 @@ fn update_settings(app: tauri::AppHandle, settings: Settings) -> Result<Settings
     commit_settings(&app, settings)
 }
 
-/// Send a snapshot to the frontend. A failed emit (window closing) is harmless.
+/// Show a desktop notification for each session change worth one, then send
+/// the snapshot to the frontend. A failed emit (window closing) is harmless.
 fn emit_sessions(app: &tauri::AppHandle, snapshot: Vec<SessionSnapshot>) {
+    show_notifications(app, &snapshot);
     let _ = app.emit(SESSIONS_EVENT, snapshot);
+}
+
+fn show_notifications(app: &tauri::AppHandle, snapshot: &[SessionSnapshot]) {
+    // `try_state` gives `None` instead of panicking if setup has not
+    // registered the value yet.
+    let (Some(notifier), Some(settings)) = (
+        app.try_state::<Notifier>(),
+        app.try_state::<SettingsState>(),
+    ) else {
+        return;
+    };
+    let settings = settings
+        .current
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let focused = app
+        .get_webview_window("main")
+        .and_then(|w| w.is_focused().ok())
+        .unwrap_or(false);
+    for notice in notifier.notices(snapshot, &settings, focused) {
+        let mut builder = app
+            .notification()
+            .builder()
+            .title(notice.title)
+            .body(notice.body);
+        if settings.sound {
+            // "default" asks the OS for its standard notification sound.
+            builder = builder.sound("default");
+        }
+        if let Err(e) = builder.show() {
+            eprintln!("agentwatch: notification failed: {e}");
+        }
+    }
 }
 
 /// The `~/.agentwatch` directory, kept in Tauri's managed state so the exit
@@ -202,6 +241,7 @@ pub fn run() {
             let store: SharedStore = Arc::new(Mutex::new(SessionStore::new()));
             app.manage(store.clone());
             app.manage(DataDir(dir.clone()));
+            app.manage(Notifier::default());
 
             // The callback owns a clone of the app handle (`move`), and sends
             // every changed snapshot to the frontend.
