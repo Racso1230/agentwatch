@@ -110,12 +110,20 @@ This document describes **what to build and in what order**, not how to build it
 - Start on login (optional).
 - Settings screen for everything above.
 
-**Done when**
-- The user forgets it's a side project and just uses it.
+**Status:** Phase 3 built and verified live (2026-11-14).
+- **Window:** tray icon, remembered position and size, edge snapping, opacity, click-through (turned off from the tray), animations, and a settings screen.
+- **Notifications** for needs-you and finished, with per-session mute.
+- **Click-to-focus for VS Code** sessions.
+- **First-prompt subtitles** to tell same-folder sessions apart.
+- **Dead Claude processes** move their row to Ended.
+- **Start on login** is available and off by default.
 
-**Open questions for the user**
-- Which notifications are useful vs annoying?
-- Global hotkey to show/hide or jump to the oldest waiting prompt?
+**Done when**
+- [ ] The user forgets it's a side project and just uses it. This is judged by daily use over the coming days.
+
+**Open questions for the user** (answered)
+- Notify on needs-you and finished, with per-session mute and optional sound.
+- No global hotkey.
 
 ---
 
