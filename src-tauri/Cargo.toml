@@ -23,7 +23,7 @@ tauri = { version = "2.11.6", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-notification = "2.4.0"
 tauri-plugin-window-state = "2.4.1"
-tokio = { version = "1.54.1", features = ["rt-multi-thread", "net", "macros", "sync", "time", "io-util"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "net", "macros", "sync", "time", "io-util", "process"] }
 
 [dev-dependencies]
 http-body-util = "0.1.5"
