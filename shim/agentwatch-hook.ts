@@ -25,14 +25,17 @@ setTimeout(done, HARD_DEADLINE_MS).unref();
 process.on("uncaughtException", done);
 process.on("unhandledRejection", done);
 
-async function readStdin(): Promise<Uint8Array | null> {
+// Always read stdin to the end, even when we will discard it: exiting while
+// Claude Code is still writing could give it a broken-pipe error, which it
+// might report as a hook error. `keep: false` drains without buffering.
+async function readStdin(keep: boolean): Promise<Uint8Array | null> {
   const chunks: Uint8Array[] = [];
   let total = 0;
   for await (const chunk of Bun.stdin.stream()) {
     total += chunk.byteLength;
-    if (total > MAX_BODY_BYTES) return null; // too big: the server would 413 it
-    chunks.push(chunk);
+    if (keep && total <= MAX_BODY_BYTES) chunks.push(chunk);
   }
+  if (!keep || total > MAX_BODY_BYTES) return null; // too big: server would 413
   return Buffer.concat(chunks);
 }
 
@@ -54,10 +57,11 @@ function readEndpoint(): { port: number; token: string } | null {
 }
 
 async function main(): Promise<void> {
-  // Check the endpoint first so a closed widget costs no stdin work or network.
+  // Check the endpoint first so a closed widget costs no network; stdin is
+  // still drained (see readStdin).
   const endpoint = readEndpoint();
+  const body = await readStdin(endpoint !== null);
   if (!endpoint) return;
-  const body = await readStdin();
   if (!body || body.byteLength === 0) return;
   // The response is deliberately ignored: Phase 1 never relays a decision.
   await fetch(`http://127.0.0.1:${endpoint.port}/event`, {
