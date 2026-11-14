@@ -5,6 +5,10 @@ import {
   sortSessions,
   stateColor,
   stateLabel,
+  canFocus,
+  entrypointLabel,
+  subtitle,
+  focusHint,
 } from "./sessions";
 
 function make(id: string, state: SessionState): Session {
@@ -82,4 +86,29 @@ test("labels and colours exist for every state", () => {
     expect(stateColor(s)).toMatch(/^#[0-9a-f]{6}$/);
   }
   expect(stateColor("needs_you")).not.toBe(stateColor("working"));
+});
+
+test("canFocus only for VS Code", () => {
+  expect(canFocus({ entrypoint: "claude-vscode" })).toBe(true);
+  expect(canFocus({ entrypoint: "cli" })).toBe(false);
+  expect(canFocus({ entrypoint: null })).toBe(false);
+});
+
+test("entrypointLabel", () => {
+  expect(entrypointLabel("claude-vscode")).toBe("VS Code");
+  expect(entrypointLabel("cli")).toBe("terminal");
+  expect(entrypointLabel("claude-desktop")).toBe("desktop");
+  expect(entrypointLabel(null)).toBeNull();
+});
+
+test("subtitle and focusHint", () => {
+  expect(subtitle({ first_prompt: "  fix the bug " })).toBe("fix the bug");
+  expect(subtitle({ first_prompt: "   " })).toBeNull();
+  expect(subtitle({ first_prompt: null })).toBeNull();
+  expect(focusHint({ entrypoint: "claude-vscode" })).toBe(
+    "Focus VS Code window",
+  );
+  expect(focusHint({ entrypoint: "cli" })).toBe(
+    "Terminal session: no window to focus",
+  );
 });

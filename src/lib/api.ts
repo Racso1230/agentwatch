@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Mode, PermissionDecision } from "../types";
+import type { Mode, PermissionDecision, Settings } from "../types";
 
 // Thin wrappers over the Tauri commands (camelCase argument names).
 export const answerPermission = (
@@ -15,3 +15,14 @@ export const dismissReply = (sessionId: string) =>
 
 export const setMode = (sessionId: string, mode: Mode) =>
   invoke<boolean>("set_mode", { sessionId, mode });
+
+export const getSettings = () => invoke<Settings>("get_settings");
+
+export const updateSettings = (settings: Settings) =>
+  invoke<Settings>("update_settings", { settings });
+
+export const setMuted = (sessionId: string, muted: boolean) =>
+  invoke<boolean>("set_muted", { sessionId, muted });
+
+export const focusSession = (sessionId: string) =>
+  invoke<void>("focus_session", { sessionId });

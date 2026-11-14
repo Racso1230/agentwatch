@@ -64,3 +64,31 @@ const COLORS: Record<SessionState, string> = {
 export function stateColor(state: SessionState): string {
   return COLORS[state];
 }
+
+/** True when clicking the row can focus a window (VS Code sessions only). */
+export function canFocus(session: Pick<Session, "entrypoint">): boolean {
+  return session.entrypoint === "claude-vscode";
+}
+
+/** Short label for where the session runs; null when unknown. */
+export function entrypointLabel(entrypoint: string | null): string | null {
+  if (!entrypoint) return null;
+  if (entrypoint === "claude-vscode") return "VS Code";
+  if (entrypoint === "cli") return "terminal";
+  return entrypoint.replace(/^claude-/, "");
+}
+
+/** Subtitle text (first prompt words), or null when there is nothing to show. */
+export function subtitle(
+  session: Pick<Session, "first_prompt">,
+): string | null {
+  const t = session.first_prompt?.trim();
+  return t ? t : null;
+}
+
+/** Tooltip for the clickable/non-clickable main area of a row. */
+export function focusHint(session: Pick<Session, "entrypoint">): string {
+  return canFocus(session)
+    ? "Focus VS Code window"
+    : "Terminal session: no window to focus";
+}
