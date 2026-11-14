@@ -1,0 +1,10 @@
+node_modules
+dist
+bun.lock
+src-tauri/target
+src-tauri/gen
+src-tauri/icons
+src-tauri/tests/fixtures
+prototype
+docs
+agent-widget-roadmap.md
