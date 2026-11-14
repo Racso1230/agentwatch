@@ -14,9 +14,8 @@
 //! 4. `send_message` writes more user messages; `end` closes stdin (the CLI
 //!    exits when its input ends) and kills it after a grace period.
 //!
-//! Interrupt is NOT supported: the stream-json interrupt control request is
-//! not documented well enough to implement without guessing (see
-//! `Owned::interrupt`).
+//! 5. `interrupt` stops the current turn with a stream-json control request
+//!    (shape verified live, see `Owned::interrupt`); the session stays open.
 
 use std::collections::HashMap;
 use std::ffi::OsStr;
@@ -743,11 +742,25 @@ impl Owned {
         Ok(())
     }
 
-    /// Not supported: the stream-json "interrupt" control request is not
-    /// documented well enough to send without guessing its shape. The UI
-    /// should hide its Stop button; `end` is the way to stop an agent.
-    pub fn interrupt(&self, _id: &str) -> Result<(), String> {
-        Err("interrupt not supported".to_string())
+    /// Stop the current turn without ending the session. Sends the stream-json
+    /// control request `{"type":"control_request","request_id":…,
+    /// "request":{"subtype":"interrupt"}}`. Verified live against Claude Code
+    /// 2.1.325 (prototype/spike, 2026-11-14): the CLI answers with a
+    /// `control_response` (subtype "success"), ends the turn with a `result`
+    /// of subtype "error_during_execution", and keeps accepting messages.
+    pub fn interrupt(&self, id: &str) -> Result<(), String> {
+        let tx = {
+            let reg = self.lock();
+            let real = reg.resolve(id);
+            let entry = reg.entries.get(&real).ok_or("unknown session")?;
+            entry
+                .tx
+                .clone()
+                .filter(|_| entry.running)
+                .ok_or("agent is not running")?
+        };
+        tx.send(Cmd::Line(interrupt_line(&next_request_id())))
+            .map_err(|_| "agent is not running".to_string())
     }
 
     /// Close the process's stdin (the CLI then finishes and exits), and kill
@@ -804,6 +817,24 @@ fn user_message_line(text: &str) -> String {
     json!({"type": "user", "message": {"role": "user", "content": text}}).to_string()
 }
 
+static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
+
+fn next_request_id() -> String {
+    format!(
+        "agentwatch-{}",
+        NEXT_REQUEST.fetch_add(1, Ordering::Relaxed)
+    )
+}
+
+fn interrupt_line(request_id: &str) -> String {
+    json!({
+        "type": "control_request",
+        "request_id": request_id,
+        "request": {"subtype": "interrupt"}
+    })
+    .to_string()
+}
+
 /// Owns the process's stdin: writes each queued line, and closes the pipe
 /// (by dropping it) on `Close` or when every sender is gone.
 async fn write_stdin(mut stdin: tokio::process::ChildStdin, mut rx: mpsc::UnboundedReceiver<Cmd>) {
@@ -826,6 +857,17 @@ mod tests {
     use crate::sessions::SessionStore;
 
     // ---- pure helpers -------------------------------------------------
+
+    #[test]
+    fn interrupt_line_matches_verified_shape() {
+        let v: Value = serde_json::from_str(&interrupt_line("agentwatch-7")).unwrap();
+        assert_eq!(
+            v,
+            json!({"type": "control_request", "request_id": "agentwatch-7",
+                   "request": {"subtype": "interrupt"}})
+        );
+        assert_ne!(next_request_id(), next_request_id());
+    }
 
     #[test]
     fn summary_table() {
@@ -1286,10 +1328,10 @@ mod tests {
         let id = h.owned.launch(&cwd, "SUBAGENT SLOW").await.unwrap();
         assert!(h.owned.send_message(&id, "  \n").is_err());
         assert!(h.owned.send_message("no-such-id", "hi").is_err());
-        assert_eq!(
-            h.owned.interrupt(&id).unwrap_err(),
-            "interrupt not supported"
-        );
+        // Interrupt is accepted for a running agent (the fake ignores it)
+        // and rejected for an unknown one.
+        assert!(h.owned.interrupt(&id).is_ok());
+        assert!(h.owned.interrupt("no-such-id").is_err());
         let o = h.owned.clone();
         let i = id.clone();
         wait_for("turn", move || turn_results(&o, &i) == 1).await;

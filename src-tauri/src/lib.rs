@@ -307,7 +307,7 @@ fn send_message(
     owned.send_message(&session_id, &text)
 }
 
-/// Always an error today ("interrupt not supported"); see `owned.rs`.
+/// Stop the agent's current turn; the session stays open (see `owned.rs`).
 #[tauri::command]
 fn interrupt_session(owned: tauri::State<'_, Owned>, session_id: String) -> Result<(), String> {
     owned.interrupt(&session_id)
