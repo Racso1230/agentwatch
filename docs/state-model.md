@@ -76,6 +76,9 @@ Any event for a known session after `stale`/`idle` revives it according to the t
 | Extra events beyond the proposal | `PostToolBatch`, `MessageDisplay`, `ConfigChange` appear in the log | Subscribe only to what is needed; these add no state info |
 | `SessionEnd` not seen for session 3 | the log ends with `ConfigChange` at 15:26:22 | Session was probably still open or killed; supports a stale timer |
 | `SessionEnd` follows `Stop` within 0.2 s in `-p` | Stop 15:12:54.097, SessionEnd 15:12:54.281 | `-p` sessions are short-lived cards; consider hiding or fast-dropping them |
+| **Deny = interrupt: nothing fires** (VS Code session `9df4869a`) | PermissionRequest(PowerShell `Remove-Item`) 15:33:29, user clicked Deny; transcript shows `tool_result` "The user doesn't want to proceed..." + "[Request interrupted by user for tool use]" at 15:33:32. **No** `PostToolUse`, `PostToolUseFailure`, `PermissionDenied`, `Stop` or `MessageDisplay` followed; only an unrelated `SubagentStop` at 15:33:35 | A card in `needs-you` can't rely on a closing event. Phase 1 must handle this: the widget's own Deny answer moves the card itself; a deny done in the agent UI is only detectable by the next `UserPromptSubmit`/`SessionEnd`, a timer, or tailing `transcript_path`. Probably the same for Esc interrupts |
+| VS Code and terminal payloads are identical | VS Code session (transcript `entrypoint: "claude-vscode"`, v2.1.325) produced the same events/fields as the terminal | No `entrypoint` field in hook payloads, so the widget can't tell VS Code from terminal from the payload alone (check shim env vars in Phase 1) |
+| `cwd` drive-letter casing varies | terminal `C:\\dev\\agentwatch-sandbox`, VS Code `c:\\dev\\agentwatch-sandbox` | Normalise case on Windows before comparing paths or grouping by project |
 
 ## Stale handling (Phase 1 open question for the user)
 
@@ -90,9 +93,10 @@ Placeholders, to be decided with the user:
 
 ## Still unverified
 
-- VS Code extension behaviour: no VS Code session captured yet (first attempt ran in the wrong workspace so project hooks did not load). Open: do all events fire, does `PermissionRequest` fire, `permission_mode` values, `SessionEnd` on tab/panel close.
+- ~~VS Code extension behaviour~~ verified: same events and fields as the terminal, including `PermissionRequest` and `Notification(permission_prompt)`. Still open: `SessionEnd` on tab/panel close (none seen).
+- Project hooks load only from the folder a session **starts** in: a VS Code chat started from another workspace (with the sandbox only added as an extra folder) ran no sandbox hooks. Phase 1's installer should use user-level settings.
 - `Notification` `idle_prompt` (no session sat idle for 60 s with the hook active).
-- Interrupted turns (Esc): docs say `Stop` does not fire; what, if anything, fires instead is unknown.
+- Interrupted turns (Esc): probably the same as Deny (nothing fires), still to confirm.
 - `AskUserQuestion` and `ExitPlanMode` (plan approval) payloads, and whether `PreToolUse`, `PermissionRequest` or both fire.
 - Race between answering in the terminal vs the widget (hook pending while the user answers in the terminal).
 - Real `SubagentStart` and non-empty `agent_type` (the only subagent event seen had `agent_type: ""`; probably an internal helper, not a user Task call).
