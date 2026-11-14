@@ -4,6 +4,7 @@ pub mod endpoint;
 pub mod pending;
 pub mod policy;
 pub mod server;
+pub mod settings;
 pub mod sessions;
 pub mod timers;
 pub mod transcript;
