@@ -46,4 +46,11 @@ export interface Session {
   pending_permission: PendingPermission | null;
   /** True while the widget should show a reply box for this session. */
   reply_open: boolean;
+  /** How Claude Code was launched: "claude-vscode", "cli", ... */
+  entrypoint: string | null;
+  claude_pid: number | null;
+  /** First ~5 words of the first prompt (subtitle for same-folder sessions). */
+  first_prompt: string | null;
+  /** Muted sessions raise no desktop notifications. */
+  muted: boolean;
 }

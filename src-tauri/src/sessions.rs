@@ -50,6 +50,15 @@ pub struct Session {
     pub pending_permission: Option<PermissionInfo>,
     /// `true` while the widget shows a reply box for this session.
     pub reply_open: bool,
+    /// How Claude Code was launched: "claude-vscode", "cli", ... (from the shim).
+    pub entrypoint: Option<String>,
+    /// Process id of the Claude Code process, used to notice a vanished session.
+    pub claude_pid: Option<u32>,
+    /// First ~5 words of the first prompt; tells same-folder sessions apart.
+    /// Kept in memory only.
+    pub first_prompt: Option<String>,
+    /// Muted sessions never raise desktop notifications.
+    pub muted: bool,
     /// Internal: identifies which held `/stop` request owns `reply_open`, so
     /// a replaced request cannot close its successor's box.
     #[serde(skip)]
@@ -81,6 +90,36 @@ pub struct HookEvent {
     pub agent_id: Option<String>,
     pub reason: Option<String>,
     pub source: Option<String>,
+    /// The prompt text of a `UserPromptSubmit`.
+    pub prompt: Option<String>,
+    /// Extra facts added by our shim from the hook's environment.
+    pub agentwatch: Option<AgentwatchMeta>,
+}
+
+/// The `agentwatch` object the shim adds to every body. `null` fields mean
+/// the environment variable was missing.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct AgentwatchMeta {
+    pub entrypoint: Option<String>,
+    pub claude_pid: Option<u32>,
+    pub vscode_pid: Option<u32>,
+}
+
+/// First 5 words of a prompt with whitespace collapsed. Prompts that start
+/// with `<task-notification>` are Stop-hook rewakes, not something the user
+/// typed, so they give `None`. Same for empty prompts.
+pub fn first_prompt_words(prompt: &str) -> Option<String> {
+    if prompt.trim_start().starts_with("<task-notification>") {
+        return None;
+    }
+    // `split_whitespace` already collapses runs of spaces, tabs and newlines.
+    let words: Vec<&str> = prompt.split_whitespace().take(5).collect();
+    if words.is_empty() {
+        None
+    } else {
+        Some(words.join(" "))
+    }
 }
 
 /// Owns all cards. A `Vec` keeps cards in the order they first appeared;
@@ -195,6 +234,10 @@ impl SessionStore {
                     mode: Mode::default(),
                     pending_permission: None,
                     reply_open: false,
+                    entrypoint: None,
+                    claude_pid: None,
+                    first_prompt: None,
+                    muted: false,
                     reply_ticket: 0,
                     saw_permission_request: false,
                 });
@@ -222,6 +265,25 @@ impl SessionStore {
         if let Some(m) = event.permission_mode.as_deref() {
             if s.permission_mode.as_deref() != Some(m) {
                 s.permission_mode = Some(m.to_string());
+                changed = true;
+            }
+        }
+
+        if let Some(meta) = &event.agentwatch {
+            if let Some(e) = meta.entrypoint.as_deref().filter(|e| !e.is_empty()) {
+                if s.entrypoint.as_deref() != Some(e) {
+                    s.entrypoint = Some(e.to_string());
+                    changed = true;
+                }
+            }
+            if meta.claude_pid.is_some() && s.claude_pid != meta.claude_pid {
+                s.claude_pid = meta.claude_pid;
+                changed = true;
+            }
+        }
+        if name == "UserPromptSubmit" && s.first_prompt.is_none() {
+            if let Some(words) = event.prompt.as_deref().and_then(first_prompt_words) {
+                s.first_prompt = Some(words);
                 changed = true;
             }
         }
@@ -344,6 +406,17 @@ impl SessionStore {
         }
     }
 
+    /// Returns `true` if the flag actually changed.
+    pub fn set_muted(&mut self, session_id: &str, muted: bool) -> bool {
+        match self.find_mut(session_id) {
+            Some(s) if s.muted != muted => {
+                s.muted = muted;
+                true
+            }
+            _ => false,
+        }
+    }
+
     pub fn set_pending_permission(&mut self, session_id: &str, info: PermissionInfo) -> bool {
         match self.find_mut(session_id) {
             Some(s) => {
@@ -415,9 +488,26 @@ impl SessionStore {
     /// and removal of ended / long-stale cards. `NeedsYou` never times out.
     /// Returns `true` if anything changed.
     pub fn sweep(&mut self, now: Millis) -> bool {
+        self.sweep_with(now, &|_| true)
+    }
+
+    /// Like `sweep`, plus a liveness check. `is_alive` says whether a process
+    /// id is still running (a closure, so tests can fake it). A card whose
+    /// Claude process is gone becomes `Ended` even without a `SessionEnd`.
+    pub fn sweep_with(&mut self, now: Millis, is_alive: &dyn Fn(u32) -> bool) -> bool {
         let before = self.sessions.len();
         let mut changed = false;
         for s in &mut self.sessions {
+            if s.state != SessionState::Ended && s.claude_pid.is_some_and(|pid| !is_alive(pid)) {
+                s.state = SessionState::Ended;
+                s.state_since = now;
+                s.ended_at = Some(now);
+                s.pending_tool = None;
+                s.pending_permission = None;
+                s.reply_open = false;
+                changed = true;
+                continue;
+            }
             // An expired snooze goes back to "ask me".
             if matches!(s.mode, Mode::Snoozed { until } if until <= now) {
                 s.mode = Mode::AskMe;
@@ -492,6 +582,93 @@ mod tests {
             .iter()
             .position(|e| e.hook_event_name == name)
             .expect("event present in fixture")
+    }
+
+    fn prompt_event(id: &str, prompt: &str) -> HookEvent {
+        event(
+            json!({"hook_event_name": "UserPromptSubmit", "session_id": id,
+            "cwd": "/x/p", "prompt": prompt}),
+        )
+    }
+
+    #[test]
+    fn first_prompt_words_rules() {
+        assert_eq!(
+            first_prompt_words("  fix  the\nlogin\tbug in the form please"),
+            Some("fix the login bug in".to_string())
+        );
+        assert_eq!(first_prompt_words("hi"), Some("hi".to_string()));
+        assert_eq!(first_prompt_words("   \n "), None);
+        assert_eq!(first_prompt_words("<task-notification> done"), None);
+        assert_eq!(first_prompt_words("  <task-notification>x"), None);
+    }
+
+    #[test]
+    fn first_prompt_is_set_once_and_skips_rewakes() {
+        let mut store = SessionStore::new();
+        store.apply(&prompt_event("a", "<task-notification>bg done"), 1);
+        assert_eq!(store.snapshot()[0].first_prompt, None);
+        store.apply(&prompt_event("a", "add dark mode"), 2);
+        store.apply(&prompt_event("a", "something else"), 3);
+        assert_eq!(
+            store.snapshot()[0].first_prompt.as_deref(),
+            Some("add dark mode")
+        );
+    }
+
+    #[test]
+    fn meta_is_parsed_and_null_pid_keeps_old_value() {
+        let mut store = SessionStore::new();
+        let with = event(json!({"hook_event_name": "SessionStart", "session_id": "a",
+            "agentwatch": {"entrypoint": "claude-vscode", "claude_pid": 42, "vscode_pid": null}}));
+        assert!(store.apply(&with, 1));
+        let s = &store.snapshot()[0];
+        assert_eq!(s.entrypoint.as_deref(), Some("claude-vscode"));
+        assert_eq!(s.claude_pid, Some(42));
+        let without = event(json!({"hook_event_name": "PreToolUse", "session_id": "a",
+            "agentwatch": {"entrypoint": null, "claude_pid": null, "vscode_pid": null}}));
+        store.apply(&without, 2);
+        assert_eq!(store.snapshot()[0].claude_pid, Some(42));
+        assert_eq!(
+            store.snapshot()[0].entrypoint.as_deref(),
+            Some("claude-vscode")
+        );
+    }
+
+    #[test]
+    fn dead_pid_ends_the_session_then_it_is_dropped() {
+        let mut store = SessionStore::new();
+        let ev = event(
+            json!({"hook_event_name": "UserPromptSubmit", "session_id": "a",
+            "agentwatch": {"claude_pid": 7}}),
+        );
+        store.apply(&ev, 0);
+        // Alive: nothing changes.
+        assert!(!store.sweep_with(1_000, &|_| true));
+        // Dead: Ended right away.
+        assert!(store.sweep_with(2_000, &|_| false));
+        assert_eq!(store.snapshot()[0].state, SessionState::Ended);
+        // Reported once, then the normal drop-after-end applies.
+        assert!(!store.sweep_with(3_000, &|_| false));
+        assert!(store.sweep_with(2_000 + 11_000, &|_| false));
+        assert!(store.snapshot().is_empty());
+    }
+
+    #[test]
+    fn unknown_pid_is_never_checked() {
+        let mut store = SessionStore::new();
+        store.apply(&prompt_event("a", "x"), 0);
+        assert!(!store.sweep_with(1_000, &|_| false));
+    }
+
+    #[test]
+    fn set_muted_reports_changes() {
+        let mut store = SessionStore::new();
+        store.apply(&prompt_event("a", "x"), 0);
+        assert!(store.set_muted("a", true));
+        assert!(!store.set_muted("a", true));
+        assert!(!store.set_muted("zzz", true));
+        assert!(store.snapshot()[0].muted);
     }
 
     #[test]

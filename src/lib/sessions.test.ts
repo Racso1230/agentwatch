@@ -22,6 +22,10 @@ function make(id: string, state: SessionState): Session {
     mode: { kind: "ask_me" },
     pending_permission: null,
     reply_open: false,
+    entrypoint: null,
+    claude_pid: null,
+    first_prompt: null,
+    muted: false,
   };
 }
 

@@ -5,13 +5,27 @@ use crate::constants::SWEEP_INTERVAL;
 use crate::server::{now_millis, SharedStore};
 use crate::sessions::{Millis, SessionSnapshot};
 
+/// Is a process with this id still running? Uses `sysinfo`, which works on
+/// Windows, Linux and macOS. Refreshing just one pid keeps it cheap.
+pub fn process_alive(pid: u32) -> bool {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let pid = Pid::from_u32(pid);
+    let mut sys = System::new();
+    sys.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing(),
+    );
+    sys.process(pid).is_some()
+}
+
 /// One sweep. Returns the new snapshot only if something changed. `now` is
 /// passed in (not read from the clock) so tests can use fixed times.
 pub fn tick(store: &SharedStore, now: Millis) -> Option<Vec<SessionSnapshot>> {
     // The lock is released at the end of this function, before the caller
     // emits anything to the frontend.
     let mut store = store.lock().unwrap_or_else(|e| e.into_inner());
-    if store.sweep(now) {
+    if store.sweep_with(now, &process_alive) {
         Some(store.snapshot())
     } else {
         None
@@ -50,6 +64,12 @@ mod tests {
         };
         s.apply(&ev, at);
         Arc::new(Mutex::new(s))
+    }
+
+    #[test]
+    fn process_alive_sees_this_process_but_not_a_huge_pid() {
+        assert!(process_alive(std::process::id()));
+        assert!(!process_alive(u32::MAX - 1));
     }
 
     #[test]
