@@ -1,0 +1,117 @@
+[
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "neutral text"
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "permission_mode": "default",
+  "effort": {
+   "level": "low"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+   "file_path": "C:\\work\\demo\\README.md"
+  },
+  "tool_use_id": "toolu_01My6aVo96Viyrc57gvzrmqG"
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "permission_mode": "default",
+  "effort": {
+   "level": "low"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+   "file_path": "C:\\work\\demo\\README.md"
+  },
+  "tool_response": {
+   "type": "text",
+   "file": {
+    "filePath": "C:\\work\\demo\\README.md",
+    "content": "neutral text",
+    "numLines": 3,
+    "startLine": 1,
+    "totalLines": 3
+   }
+  },
+  "tool_use_id": "toolu_01My6aVo96Viyrc57gvzrmqG",
+  "duration_ms": 3
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "permission_mode": "default",
+  "effort": {
+   "level": "low"
+  },
+  "hook_event_name": "PostToolBatch",
+  "tool_calls": [
+   {
+    "tool_name": "Read",
+    "tool_input": {
+     "file_path": "C:\\work\\demo\\README.md"
+    },
+    "tool_use_id": "toolu_01My6aVo96Viyrc57gvzrmqG",
+    "tool_response": "neutral text"
+   }
+  ]
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "hook_event_name": "MessageDisplay",
+  "turn_id": "6d8e560a-f2b1-4611-afde-d72a9b6931fd",
+  "message_id": "b9f77d27-f4c4-469c-8ee0-2f14dcfd3065",
+  "index": 0,
+  "final": true,
+  "delta": "neutral text"
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "permission_mode": "default",
+  "effort": {
+   "level": "low"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "neutral text",
+  "background_tasks": [],
+  "session_crons": []
+ },
+ {
+  "session_id": "600e764c-5a08-46bb-8720-fc3949a88264",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\600e764c-5a08-46bb-8720-fc3949a88264.jsonl",
+  "cwd": "C:\\work\\demo",
+  "prompt_id": "e342be5d-e42f-4ba9-a736-86ad25903763",
+  "hook_event_name": "SessionEnd",
+  "reason": "other"
+ }
+]

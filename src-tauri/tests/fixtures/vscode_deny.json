@@ -1,0 +1,234 @@
+[
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "neutral text"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+   "file_path": "c:\\work\\demo\\vscode2.txt",
+   "content": "neutral text"
+  },
+  "tool_use_id": "toolu_01E12pLcVnBgPrFvNCjuWVSJ"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Write",
+  "tool_input": {
+   "file_path": "c:\\work\\demo\\vscode2.txt",
+   "content": "neutral text"
+  },
+  "permission_suggestions": [
+   {
+    "type": "setMode",
+    "mode": "acceptEdits",
+    "destination": "session"
+   }
+  ]
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "hook_event_name": "Notification",
+  "message": "Claude needs your permission to use Write",
+  "notification_type": "permission_prompt"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+   "file_path": "c:\\work\\demo\\vscode2.txt",
+   "content": "neutral text"
+  },
+  "tool_response": {
+   "type": "create",
+   "filePath": "c:\\work\\demo\\vscode2.txt",
+   "content": "neutral text",
+   "structuredPatch": [],
+   "originalFile": null,
+   "userModified": false
+  },
+  "tool_use_id": "toolu_01E12pLcVnBgPrFvNCjuWVSJ",
+  "duration_ms": 22
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PostToolBatch",
+  "tool_calls": [
+   {
+    "tool_name": "Write",
+    "tool_input": {
+     "file_path": "c:\\work\\demo\\vscode2.txt",
+     "content": "neutral text"
+    },
+    "tool_use_id": "toolu_01E12pLcVnBgPrFvNCjuWVSJ",
+    "tool_response": "neutral text"
+   }
+  ]
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "hook_event_name": "MessageDisplay",
+  "turn_id": "43650985-acdb-4f57-be3a-2b2a5efe203a",
+  "message_id": "2beda750-43d7-469d-af01-c0a53402daec",
+  "index": 0,
+  "final": true,
+  "delta": "neutral text"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "neutral text",
+  "background_tasks": [],
+  "session_crons": []
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "9de0c902-6b9c-4a18-be7e-1c73115a916c",
+  "permission_mode": "default",
+  "agent_id": "a8fe03f1fc3cacbca",
+  "agent_type": "",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b\\subagents\\agent-a8fe03f1fc3cacbca.jsonl",
+  "last_assistant_message": "neutral text",
+  "background_tasks": [],
+  "session_crons": []
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "fdb2c317-3b55-4e75-afb5-4287c13a824e",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "neutral text"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "fdb2c317-3b55-4e75-afb5-4287c13a824e",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "PowerShell",
+  "tool_input": {
+   "command": "neutral text",
+   "description": "Delete vscode2.txt"
+  },
+  "tool_use_id": "toolu_01XKpLHGnpgUHrjwFCNCzrVy"
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "fdb2c317-3b55-4e75-afb5-4287c13a824e",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "PowerShell",
+  "tool_input": {
+   "command": "neutral text",
+   "description": "Delete vscode2.txt"
+  },
+  "permission_suggestions": [
+   {
+    "type": "addDirectories",
+    "directories": [
+     "c:\\work\\demo"
+    ],
+    "destination": "session"
+   },
+   {
+    "type": "setMode",
+    "mode": "acceptEdits",
+    "destination": "session"
+   }
+  ]
+ },
+ {
+  "session_id": "9df4869a-a237-4ae5-8d60-7849c86d3d5b",
+  "transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b.jsonl",
+  "cwd": "c:\\work\\demo",
+  "prompt_id": "fdb2c317-3b55-4e75-afb5-4287c13a824e",
+  "permission_mode": "default",
+  "agent_id": "a43ec45a4ebf85e34",
+  "agent_type": "",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "C:\\Users\\dev\\.claude\\projects\\c--work-demo\\9df4869a-a237-4ae5-8d60-7849c86d3d5b\\subagents\\agent-a43ec45a4ebf85e34.jsonl",
+  "last_assistant_message": "neutral text",
+  "background_tasks": [],
+  "session_crons": []
+ }
+]
