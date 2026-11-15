@@ -1,6 +1,6 @@
 # Session state model
 
-Derived from `docs/hooks-reference.md` and real payloads in `prototype/logs/events.jsonl` (3 sessions, Windows, terminal / `claude -p`, captured 2026-11-14). Key: `session_id`. Display name: basename of `cwd`.
+Derived from `docs/hooks-reference.md` and real payloads in `prototype/logs/events.jsonl` (a local, git-ignored capture; 3 sessions, Windows, terminal / `claude -p`, captured 2026-11-14). Key: `session_id`. Display name: basename of `cwd`.
 
 ## States
 

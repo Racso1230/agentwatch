@@ -1,20 +1,10 @@
-# Phase 0 prototype: hook event logger (THROWAWAY)
+# Prototype and spike code (history)
 
-`log-hook.mjs` appends every Claude Code hook payload it receives to `logs/events.jsonl`
-(one JSON line: `ts`, `event`, `pid`, `payload`). It exists only to capture real payloads
-for Phase 0 and will be deleted once the real hook shim exists.
+This folder holds the throwaway code from the early research phases. It is not part of the app and is not built, tested or shipped. It is kept because `docs/state-model.md` and `docs/DECISIONS.md` refer to what these spikes found.
 
-It fails open: no stdout/stderr, always exits 0, 2s safety timer. It never returns a decision.
+- `log-hook.mjs` (Phase 0): a Claude Code hook that appends every hook payload it receives to `logs/events.jsonl`. It fails open: no stdout or stderr, always exit 0, 2 s safety timer. Set `AGENTWATCH_LOG_PATH` to write elsewhere. The captured logs are git-ignored and not published; the real payloads were turned into the neutral fixtures in `src-tauri/tests/fixtures/`.
+- `spike/permission-delay.mjs` (Phase 2): does Claude show its own permission prompt while a `PermissionRequest` hook is waiting?
+- `spike/stop-rewake.mjs` (Phase 2): how does a `Stop` hook with `asyncRewake` behave when it exits with code 2?
+- `spike/headless.ts` (Phase 4): can one headless `claude -p` process take several messages over stdin (stream-json)?
 
-## Enable
-Register it as a `command` hook in a settings file, e.g.
-`node "c:/dev/agentwatch/prototype/log-hook.mjs" <EventName>`.
-The sandbox at `c:\dev\agentwatch-sandbox\.claude\settings.local.json` already does this
-for every event. Run `claude` from that folder (accept workspace trust in interactive mode).
-
-## Disable
-Delete or rename the sandbox `.claude/settings.local.json`, or remove the hook entries.
-Delete `prototype/logs/` to clear captured data (git-ignored).
-
-## Testing
-Set `AGENTWATCH_LOG_PATH` to write elsewhere (test-only override).
+To try the logger, register it as a `command` hook in a Claude Code settings file, for example `node "<path-to-repo>/prototype/log-hook.mjs" <EventName>`, and remove the entry afterwards. Never leave it installed: the app itself is the supported way to connect (Settings, Connect).
