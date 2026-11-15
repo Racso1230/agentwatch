@@ -12,9 +12,7 @@
     "test": "bun test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "hooks:install": "bun run scripts/hooks.ts install",
-    "hooks:uninstall": "bun run scripts/hooks.ts uninstall",
-    "hooks:status": "bun run scripts/hooks.ts status"
+    "hook:build": "cargo build --release --manifest-path hook/Cargo.toml"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

@@ -23,7 +23,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: |
+            src-tauri
+            hook
 
       - name: Install Linux dependencies for Tauri
         if: runner.os == 'Linux'
@@ -63,3 +65,12 @@ jobs:
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test
+
+      - name: Hook format
+        run: cargo fmt --check --manifest-path hook/Cargo.toml
+
+      - name: Hook clippy
+        run: cargo clippy --all-targets --manifest-path hook/Cargo.toml -- -D warnings
+
+      - name: Hook tests
+        run: cargo test --manifest-path hook/Cargo.toml

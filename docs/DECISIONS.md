@@ -8,7 +8,8 @@ All decided by the user on 2026-11-14 (end of Phase 0).
 | 2 | Platforms | Windows, Linux, macOS |
 | 3 | Channel | localhost HTTP on 127.0.0.1 + per-install token |
 | 4 | Stakes | Personal tool; no signing/auto-update; must fail open |
-| 5 | Hook transport | Command shim (Bun/TypeScript) that POSTs to the widget (not native `http` hooks) |
+| 5 | Hook transport | Command shim that POSTs to the widget (not native `http` hooks); runtime superseded by ADR-8 |
+| 8 | Hook runtime | Native Rust binary replaces the Bun shim for release |
 | 6 | Sources | Claude Code only for now; source-agnostic core event type |
 | 7 | Session identity | `session_id` only |
 
@@ -62,7 +63,7 @@ All decided by the user on 2026-11-14 (end of Phase 0).
   | Rust binary | ~ms startup, ~1 MB exe | Second language for the shim |
   | Node script | Fast to write | Slowest; needs Node on PATH |
 
-  Whether the hook config calls `bun shim.ts` or a compiled exe is decided in Phase 1.
+  Superseded for release by ADR-8: the shim is now a native Rust binary.
 
 ## ADR-6: Sources — Claude Code only, source-agnostic core
 
@@ -75,3 +76,10 @@ All decided by the user on 2026-11-14 (end of Phase 0).
 - **Context:** In the captured log the parent pid (`pid` in each record) differs for every event (each hook is a fresh process), and `cwd` is shared by all sessions opened in the same folder (all three sessions used `C:\dev\agentwatch-sandbox`).
 - **Decision:** A session is identified by `session_id` alone. `cwd` basename is display text only; pid is never used.
 - **Consequences:** Two sessions in one folder show as two cards. Events with a missing `session_id` are dropped. `agent_id` (subagents) is a secondary field and never creates a session.
+
+## ADR-8: Native Rust hook binary replaces the Bun shim for release
+
+- **Context:** ADR-5 chose a Bun/TypeScript shim and left open whether the hook config would call `bun shim.ts` or a compiled exe. The first public release (Windows + Linux) has visitors without Bun.
+- **Decision:** The hook is a small standalone Rust crate (`hook/`, binary `agentwatch-hook`) using only `std` networking and `serde_json`. It ports the shim's contract exactly: drain stdin, stdout only for the PermissionRequest decision JSON, stderr only for the Stop reply, exit 2 only for a non-empty Stop reply, exit 0 on everything else (including panics), same timeouts and 1 MB limit, a watchdog thread as hard deadline. The app installs and removes hooks itself (Connect / Disconnect): it copies the binary to `~/.agentwatch/bin/` and writes that stable path into `settings.json` (merge logic ported from the old `scripts/hooks-config.ts`). The Bun shim and `scripts/hooks*.ts` are deleted.
+- **Why:** A `bun build --compile` exe embeds the runtime (~100 MB download for every user), and a plain script needs Bun installed. The Rust binary is about 0.2 MB, spawns faster, and keeps the same fail-open contract.
+- **Consequences:** A second Rust crate in the repo with its own CI job. Supersedes only the runtime part of ADR-5 (Bun); the transport, routes and fail-open rules of ADR-5 stand. Bun remains the frontend package manager.

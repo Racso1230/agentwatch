@@ -53,7 +53,7 @@ This document describes **what to build and in what order**, not how to build it
 - Stale-session handling (a session that goes quiet eventually drops off or greys out).
 - A setup step that installs the hook config for the user.
 
-**Status:** Phase 1 complete (2026-11-14). The hook is a Bun shim (`shim/agentwatch-hook.ts`, async hooks), installed with `bun run hooks:install`. A deny made outside the widget is cleared by the transcript watcher.
+**Status:** Phase 1 complete (2026-11-14). The hook was a Bun shim; it is now the native Rust binary `hook/` (ADR-8), installed from the app (Connect) instead of `bun run hooks:install`. A deny made outside the widget is cleared by the transcript watcher.
 
 **Done when**
 - [x] Running two or three agents (in a terminal and in VS Code) shows them all in the widget with correct states, live.
