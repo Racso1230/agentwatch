@@ -89,7 +89,7 @@ function ConnectionSection({
               disabled={busy}
               onClick={() => run(hooksConnect)}
             >
-              {connectButtonLabel(state)}
+              {busy ? "Connecting..." : "Yes, add hooks"}
             </button>
             <button
               type="button"
