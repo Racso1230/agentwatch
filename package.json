@@ -2,6 +2,14 @@
   "name": "agentwatch",
   "private": true,
   "version": "0.1.0",
+  "description": "Floating widget showing the live state of Claude Code sessions",
+  "license": "MIT",
+  "author": "Oscar Freeman",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Racso1230/agentwatch.git"
+  },
+  "homepage": "https://github.com/Racso1230/agentwatch",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -3,6 +3,9 @@ name = "agentwatch-hook"
 version = "0.1.0"
 description = "Tiny Claude Code hook command that forwards events to the agentwatch widget"
 edition = "2021"
+license = "MIT"
+authors = ["Oscar Freeman"]
+repository = "https://github.com/Racso1230/agentwatch"
 rust-version = "1.85"
 
 [[bin]]
