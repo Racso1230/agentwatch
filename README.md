@@ -10,8 +10,6 @@ It lists sessions from the terminal and from the VS Code extension in one place.
 - get desktop notifications when a session needs you or finishes, with per-session mute;
 - keep it out of the way with a tray icon, opacity, click-through, edge snapping and start on login.
 
-<!-- TODO(owner): add the screenshots below. docs/images/widget.png and docs/images/transcript.png do not exist yet. -->
-
 ![The agentwatch widget listing Claude Code sessions](docs/images/widget.png)
 
 ![The transcript window of an agent launched from the widget](docs/images/transcript.png)
