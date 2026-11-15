@@ -6,3 +6,4 @@ src-tauri/gen/
 *.log
 prototype/spike/spike.log
 prototype/spike/*.flag
+hook/target/

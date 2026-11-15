@@ -1,0 +1,25 @@
+[package]
+name = "agentwatch-hook"
+version = "0.1.0"
+description = "Tiny Claude Code hook command that forwards events to the agentwatch widget"
+edition = "2021"
+rust-version = "1.85"
+
+[[bin]]
+name = "agentwatch-hook"
+path = "src/main.rs"
+
+[dependencies]
+# `preserve_order` keeps the key order of the forwarded JSON body (like JS does).
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+# Small and fast to start matters more than peak speed for a hook command.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
