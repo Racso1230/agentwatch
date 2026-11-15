@@ -1,0 +1,67 @@
+name: Release
+
+# Pushing a tag like v0.1.0 builds Windows and Linux installers and attaches
+# them to a DRAFT GitHub release. Nothing is published until you click
+# "Publish release" on GitHub.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # tauri-action creates the release and uploads the assets
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri
+            hook
+
+      - name: Install Linux dependencies for Tauri
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+
+      # Builds the hook binary and copies it to src-tauri/binaries/ for externalBin.
+      - name: Build hook binary
+        run: bun scripts/prepare-hook.ts
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: bun run tauri
+          args: --config src-tauri/tauri.release.conf.json
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v__VERSION__' }}
+          releaseName: agentwatch v__VERSION__
+          releaseDraft: true
+          prerelease: false
+          releaseBody: |
+            First public release of agentwatch: a floating widget that shows your Claude Code sessions.
+
+            **Unsigned builds.** These installers are not code-signed.
+            - Windows: SmartScreen will warn ("Windows protected your PC"). Choose "More info", then "Run anyway".
+            - Linux: install the `.deb` with your package manager, or make the `.AppImage` executable and run it.
+
+            After installing, open Settings in the widget and click Connect so agentwatch can see your Claude Code sessions.
+            On Windows, uninstalling removes the hooks automatically. On Linux, click Disconnect in Settings before removing the app.
