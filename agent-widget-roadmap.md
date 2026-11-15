@@ -106,7 +106,7 @@ This document describes **what to build and in what order**, not how to build it
 - Opacity control and click-through mode (so it never gets in the way while gaming).
 - Click a card to bring the agent's window (terminal or VS Code) to the front.
 - Animations for state changes (e.g. pulsing while working).
-- Tell apart sessions in the same folder (e.g. a short tag from the first prompt or the session id), since today two rows can both read "orbis-scriptor".
+- Tell apart sessions in the same folder (e.g. a short tag from the first prompt or the session id), since today two rows can both read "my-project".
 - Start on login (optional).
 - Settings screen for everything above.
 
@@ -164,6 +164,24 @@ Ideas once the core is solid, not commitments:
 - History of past sessions and prompts answered.
 - Quick actions (open project folder, open diff, rerun tests).
 - Phone notifications for long-running agents.
+
+---
+
+## Release (v0.1.0)
+
+**Status:** built, not yet published.
+
+- **Native hook:** the Bun shim is replaced by the Rust binary `hook/` (ADR-8), about 0.2 MB, with the same fail-open contract.
+- **Connect UI:** Settings has Connect and Disconnect, with a consent step, a timestamped backup of `~/.claude/settings.json`, and the hook binary installed at `~/.agentwatch/bin`.
+- **NSIS uninstall cleanup:** the Windows uninstaller runs `agentwatch.exe --disconnect-hooks`, but not during an upgrade.
+- **Release workflow:** `.github/workflows/release.yml` builds Windows (NSIS) and Linux (`.deb`, AppImage) on a `v*` tag and attaches them to a draft GitHub release.
+- **README and licence:** README, CHANGELOG and the MIT licence are in place; the repository was scrubbed of personal paths before going public.
+
+**Pending owner action**
+
+- [ ] Add the screenshots `docs/images/widget.png` and `docs/images/transcript.png`.
+- [ ] Make the GitHub repository public.
+- [ ] Tag `v0.1.0`, check the draft release, and publish it.
 
 ---
 
