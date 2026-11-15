@@ -12,7 +12,8 @@
     "test": "bun test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "hook:build": "cargo build --release --manifest-path hook/Cargo.toml"
+    "hook:build": "cargo build --release --manifest-path hook/Cargo.toml",
+    "release:build": "bun scripts/prepare-hook.ts && tauri build --config src-tauri/tauri.release.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

@@ -7,3 +7,4 @@ src-tauri/gen/
 prototype/spike/spike.log
 prototype/spike/*.flag
 hook/target/
+src-tauri/binaries/

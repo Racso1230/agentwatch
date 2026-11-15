@@ -32,6 +32,13 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Oscar Freeman",
+    "shortDescription": "Floating widget showing live Claude Code sessions",
+    "longDescription": "agentwatch is a small always-on-top widget that shows the state of your Claude Code sessions (working, needs you, done) using Claude Code hooks.",
+    "homepage": "https://github.com/Racso1230/agentwatch",
+    "category": "DeveloperTool",
+    "copyright": "Copyright (c) 2026 Oscar Freeman",
+    "license": "MIT",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
