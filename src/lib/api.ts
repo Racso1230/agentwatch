@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  HooksStatus,
   Mode,
   PermissionDecision,
   Settings,
@@ -59,3 +60,7 @@ export const openLauncher = () => invoke<void>("open_launcher");
 
 export const openTranscript = (sessionId: string) =>
   invoke<void>("open_transcript", { sessionId });
+
+export const hooksStatus = () => invoke<HooksStatus>("hooks_status");
+export const hooksConnect = () => invoke<HooksStatus>("hooks_connect");
+export const hooksDisconnect = () => invoke<HooksStatus>("hooks_disconnect");

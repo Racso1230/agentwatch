@@ -113,3 +113,19 @@ export interface SessionRekeyed {
   from: string;
   to: string;
 }
+
+/** Result of `hooks_status` / `hooks_connect` / `hooks_disconnect`. */
+export interface HooksStatus {
+  /** Our hook entries exist in Claude Code's settings.json. */
+  connected: boolean;
+  /** Events that have our entries. */
+  events: string[];
+  /** Command of the first entry, if any. */
+  command: string | null;
+  /**
+   * Entries exist but are not in the current form (e.g. the old Bun shim,
+   * missing binary copy, or missing events). Connecting again fixes it.
+   */
+  stale: boolean;
+  settings_path: string;
+}

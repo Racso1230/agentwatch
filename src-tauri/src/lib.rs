@@ -2,6 +2,7 @@ pub mod config;
 pub mod constants;
 pub mod endpoint;
 pub mod focus;
+pub mod hooks;
 pub mod notify;
 pub mod owned;
 pub mod pending;
@@ -418,6 +419,35 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+/// The settings.json path and the agentwatch data dir, or an error message.
+fn hook_paths() -> Result<(PathBuf, PathBuf), String> {
+    let settings = hooks::default_settings_path().ok_or("cannot determine home directory")?;
+    let dir = endpoint::default_dir().ok_or("cannot determine home directory")?;
+    Ok((settings, dir))
+}
+
+/// Whether our hooks are in Claude Code's settings.json.
+#[tauri::command]
+fn hooks_status() -> Result<hooks::HooksStatus, String> {
+    let (settings, dir) = hook_paths()?;
+    hooks::status(&settings, &dir)
+}
+
+/// Copies the hook binary to `~/.agentwatch/bin` and adds our hook entries.
+#[tauri::command]
+fn hooks_connect() -> Result<hooks::HooksStatus, String> {
+    let (settings, dir) = hook_paths()?;
+    let source = hooks::find_bundled_hook()?;
+    hooks::connect(&settings, &dir, &source)
+}
+
+/// Removes our hook entries and the binary copy.
+#[tauri::command]
+fn hooks_disconnect() -> Result<hooks::HooksStatus, String> {
+    let (settings, dir) = hook_paths()?;
+    hooks::disconnect(&settings, &dir)
+}
+
 pub fn run() {
     // Plugins are added to the builder before `.build()`; each one registers
     // itself with the app (and may add commands or managed state).
@@ -453,13 +483,27 @@ pub fn run() {
             owned_running_count,
             quit_app,
             open_launcher,
-            open_transcript
+            open_transcript,
+            hooks_status,
+            hooks_connect,
+            hooks_disconnect
         ])
         .setup(|app| {
             // `?` converts the error and returns early from setup; Tauri
             // then reports it and the app does not start.
             let dir = endpoint::default_dir().ok_or("cannot determine home directory")?;
             let token = endpoint::load_or_create_token(&dir)?;
+
+            // After an app update, refresh the hook copy that our hook entries
+            // point at. Never edits settings.json; errors are ignored.
+            if let (Some(settings_path), Ok(source)) =
+                (hooks::default_settings_path(), hooks::find_bundled_hook())
+            {
+                let data_dir = dir.clone();
+                std::thread::spawn(move || {
+                    let _ = hooks::refresh_on_start(&settings_path, &data_dir, &source);
+                });
+            }
 
             let store: SharedStore = Arc::new(Mutex::new(SessionStore::new()));
             app.manage(store.clone());
