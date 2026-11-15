@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { Session } from "./types";
+import type { HooksStatus, Session } from "./types";
 import {
   canFocus,
   entrypointLabel,
@@ -17,12 +17,14 @@ import { modeLabel } from "./lib/respond";
 import { ReplyBox } from "./components/ReplyBox";
 import {
   focusSession,
+  hooksStatus,
   openLauncher,
   openTranscript,
   ownedRunningCount,
   quitApp,
 } from "./lib/api";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { hintText, showConnectHint } from "./lib/hooksUi";
 import { useSettings } from "./lib/useSettings";
 import { panelAlpha } from "./lib/settings";
 import { useNow, useSessions } from "./lib/useSessions";
@@ -153,6 +155,21 @@ export default function App() {
     setShowSettings(true);
   }
 
+  // Hooks connection status: checked once on startup, then kept fresh by the
+  // settings panel after every connect / disconnect.
+  const [hooks, setHooks] = useState<HooksStatus | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    hooksStatus()
+      .then((s) => {
+        if (!cancelled) setHooks(s);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Quit confirmation: number of owned agents that would stop, or null.
   const [confirmQuit, setConfirmQuit] = useState<number | null>(null);
 
@@ -257,13 +274,25 @@ export default function App() {
           onSave={save}
           onPreviewOpacity={setPreviewOpacity}
           onBack={() => setShowSettings(false)}
+          onHooksChange={setHooks}
         />
       ) : sorted.length === 0 ? (
         <div className="empty">
           <p>No Claude Code sessions yet</p>
-          <p className="hint">
-            run <code>bun run hooks:install</code>, then start Claude Code
-          </p>
+          {showConnectHint(hooks) ? (
+            <p className="hint connect-hint">
+              {hintText(hooks)}{" "}
+              <button
+                type="button"
+                className="btn btn-subtle"
+                onClick={() => setShowSettings(true)}
+              >
+                Open Settings
+              </button>
+            </p>
+          ) : (
+            <p className="hint">start Claude Code to see sessions here</p>
+          )}
         </div>
       ) : (
         <ul className="list">

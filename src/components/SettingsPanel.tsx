@@ -1,5 +1,14 @@
-import { Fragment, useState } from "react";
-import type { Settings } from "../types";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import type { HooksStatus, Settings } from "../types";
+import { hooksConnect, hooksDisconnect, hooksStatus } from "../lib/api";
+import {
+  canDisconnect,
+  connectButtonLabel,
+  connectConsent,
+  hooksDetail,
+  hooksLabel,
+  hooksState,
+} from "../lib/hooksUi";
 import { clampOpacity, opacityLabel } from "../lib/settings";
 
 type ToggleKey = Exclude<keyof Settings, "opacity" | "recent_folders">;
@@ -13,6 +22,114 @@ const TOGGLES: { key: ToggleKey; label: string }[] = [
   { key: "snap_to_edges", label: "Snap to screen edges" },
 ];
 
+/** "Claude Code connection": connect / disconnect the hooks, with consent. */
+function ConnectionSection({
+  onChange,
+}: {
+  onChange: (s: HooksStatus) => void;
+}) {
+  const [status, setStatus] = useState<HooksStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const apply = useCallback(
+    (s: HooksStatus) => {
+      setStatus(s);
+      onChange(s);
+    },
+    [onChange],
+  );
+
+  // Load the status when the panel opens.
+  useEffect(() => {
+    let cancelled = false;
+    hooksStatus()
+      .then((s) => {
+        if (!cancelled) apply(s);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apply]);
+
+  function run(action: () => Promise<HooksStatus>) {
+    setBusy(true);
+    setError(null);
+    action()
+      .then((s) => {
+        apply(s);
+        setConfirming(false);
+      })
+      .catch((e: unknown) => setError(String(e)))
+      .finally(() => setBusy(false));
+  }
+
+  const state = hooksState(status);
+  const detail = hooksDetail(state);
+
+  return (
+    <section className="conn" aria-label="Claude Code connection">
+      <div className="conn-title">Claude Code connection</div>
+      <div>
+        <span className={`conn-state conn-${state}`}>{hooksLabel(state)}</span>
+      </div>
+      {detail && <div className="setting-warn conn-detail">{detail}</div>}
+      {status && <div className="conn-path">{status.settings_path}</div>}
+      {confirming && status ? (
+        <>
+          <p className="conn-consent">{connectConsent(status.settings_path)}</p>
+          <div className="perm-actions">
+            <button
+              type="button"
+              className="btn btn-allow"
+              disabled={busy}
+              onClick={() => run(hooksConnect)}
+            >
+              {connectButtonLabel(state)}
+            </button>
+            <button
+              type="button"
+              className="btn btn-subtle"
+              disabled={busy}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="perm-actions">
+          <button
+            type="button"
+            className="btn btn-allow"
+            disabled={busy || !status || state === "connected"}
+            onClick={() => setConfirming(true)}
+          >
+            {connectButtonLabel(state)}
+          </button>
+          <button
+            type="button"
+            className="btn btn-subtle"
+            disabled={busy || !canDisconnect(state)}
+            onClick={() => run(hooksDisconnect)}
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
+      {error && (
+        <div className="reply-error" role="alert">
+          {error}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** In-window settings screen. Every change goes to `onSave` (update_settings). */
 export function SettingsPanel({
   settings,
@@ -20,6 +137,7 @@ export function SettingsPanel({
   onSave,
   onPreviewOpacity,
   onBack,
+  onHooksChange,
 }: {
   settings: Settings;
   error: string | null;
@@ -27,6 +145,8 @@ export function SettingsPanel({
   /** Live preview while dragging; null clears the preview. */
   onPreviewOpacity: (v: number | null) => void;
   onBack: () => void;
+  /** Called with the fresh hooks status after load and after each action. */
+  onHooksChange: (s: HooksStatus) => void;
 }) {
   // While dragging we show the draft; otherwise the server value.
   const [draft, setDraft] = useState<number | null>(null);
@@ -92,6 +212,7 @@ export function SettingsPanel({
             {error}
           </div>
         )}
+        <ConnectionSection onChange={onHooksChange} />
       </div>
     </div>
   );

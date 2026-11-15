@@ -886,3 +886,47 @@ textarea:focus-visible,
 .quit-confirm p {
   margin: 0 0 6px;
 }
+
+/* ---------- Claude Code connection (settings) ---------- */
+.conn {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+}
+
+.conn-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.conn-connected {
+  color: #38b566;
+}
+.conn-stale {
+  color: #ffb020;
+}
+.conn-disconnected,
+.conn-unknown {
+  color: #8a8f98;
+}
+
+.conn-detail {
+  margin-left: 0;
+}
+
+.conn-path {
+  margin: 2px 0 6px;
+  font-size: 10px;
+  color: #8a8f98;
+  word-break: break-all;
+}
+
+.conn-consent {
+  margin: 4px 0 6px;
+  color: #c9ccd2;
+}
+
+.connect-hint .btn {
+  margin-top: 6px;
+}
